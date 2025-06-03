@@ -107,7 +107,8 @@ export default function LoginScreen({ navigation }: any) {
   };
 
   return (
-    <TouchableWithoutFeedback onPress={dismissKeyboard}>
+    // Only use TouchableWithoutFeedback on mobile platforms
+    Platform.OS === 'web' ? (
       <View style={styles.container}>
         <LinearGradient
           colors={theme.backgroundGradient}
@@ -218,7 +219,121 @@ export default function LoginScreen({ navigation }: any) {
           </Text>
         </View>
       </View>
-    </TouchableWithoutFeedback>
+    ) : (
+      // Original TouchableWithoutFeedback for mobile
+      <TouchableWithoutFeedback onPress={dismissKeyboard}>
+        <View style={styles.container}>
+          <LinearGradient
+            colors={theme.backgroundGradient}
+            style={styles.background}
+          />
+          <StatusBar style={isDark ? "light" : "dark"} />
+          
+          {/* Theme toggle button */}
+          <TouchableOpacity 
+            style={styles.themeToggle}
+            onPress={toggleTheme}
+          >
+            <Ionicons 
+              name={isDark ? "sunny-outline" : "moon-outline"} 
+              size={24} 
+              color={theme.textPrimary} 
+            />
+          </TouchableOpacity>
+          
+          <View style={[styles.card, { backgroundColor: theme.cardBackground }]}>
+            <Text style={[styles.title, { color: theme.textPrimary }]}>Bienvenido</Text>
+            <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Gestión de despachos y envíos</Text>
+            
+            <View style={[styles.inputContainer, { 
+              borderColor: theme.border, 
+              backgroundColor: theme.inputBackground 
+            }]}>
+              <Ionicons name="mail-outline" size={20} color={theme.textTertiary} style={styles.inputIcon} />
+              <TextInput
+                placeholder="Correo Electrónico"
+                value={email}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  if (emailError) validateEmail(text);
+                }}
+                style={[styles.input, { color: theme.textPrimary }]}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                onBlur={() => validateEmail(email)}
+                placeholderTextColor={theme.textTertiary}
+              />
+            </View>
+            {emailError ? <Text style={[styles.errorText, { color: theme.error }]}>{emailError}</Text> : null}
+            
+            <View style={[styles.inputContainer, { 
+              borderColor: theme.border, 
+              backgroundColor: theme.inputBackground 
+            }]}>
+              <Ionicons name="lock-closed-outline" size={20} color={theme.textTertiary} style={styles.inputIcon} />
+              <TextInput
+                placeholder="Contraseña"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                style={[styles.input, { color: theme.textPrimary, paddingRight: 40 }]}
+                placeholderTextColor={theme.textTertiary}
+              />
+              <TouchableOpacity 
+                style={styles.eyeIcon} 
+                onPress={() => setShowPassword(!showPassword)}
+              >
+                <Ionicons 
+                  name={showPassword ? "eye-off-outline" : "eye-outline"} 
+                  size={20} 
+                  color={theme.textTertiary} 
+                />
+              </TouchableOpacity>
+            </View>
+            
+            <TouchableOpacity 
+              style={styles.forgotPassword} 
+              onPress={() => Alert.alert("Información", "Contacta al administrador para restablecer tu contraseña")}
+            >
+              <Text style={[styles.forgotPasswordText, { color: theme.primary }]}>
+                ¿Olvidaste tu contraseña?
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.button, { 
+                backgroundColor: theme.primary,
+                shadowColor: theme.primary 
+              }]} 
+              onPress={handleLogin}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color={theme.textInverse} />
+              ) : (
+                <Text style={[styles.buttonText, { color: theme.textInverse }]}>
+                  INICIAR SESIÓN
+                </Text>
+              )}
+            </TouchableOpacity>
+            
+            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+              <Text style={[styles.register, { color: theme.neutral }]}>
+                ¿No tienes cuenta? <Text style={[styles.registerBold, { color: theme.primary }]}>
+                  Regístrate
+                </Text>
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.footer}>
+            <Text style={[styles.footerText, { color: theme.neutral }]}>
+              © 2025 Nombre app
+            </Text>
+          </View>
+        </View>
+      </TouchableWithoutFeedback>
+    )
   );
 }
 
