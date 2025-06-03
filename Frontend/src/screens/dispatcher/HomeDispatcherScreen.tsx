@@ -1,9 +1,15 @@
 // HomeDriverScreen.tsx
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import MapView from 'react-native-maps';
 
 export default function HomeDispatcherScreen() {
+  if (Platform.OS === 'web') {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <Text>Mapa no disponible en Web</Text>
+      </View>
+    )}
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
       <Text>Bienvenido Despachador</Text>
