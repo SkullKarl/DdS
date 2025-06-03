@@ -35,10 +35,3 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
-
-app-example
-
-*.env
-
-# Python virtual environment
-venv/
