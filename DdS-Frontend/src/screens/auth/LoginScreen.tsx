@@ -1,28 +1,44 @@
 import { StatusBar } from 'expo-status-bar';
 import React, { useState } from 'react';
 import { Alert, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { login } from '../../api/authService';
+import { supabase } from '../../api/supabaseConfig';
 
 export default function LoginScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-
   const handleLogin = async () => {
-    try {
-      const userData = await login(email, password);
-      if (userData.rol === 'conductor') {
-        navigation.navigate('HomeDriver');
-      } else if (userData.rol === 'despachador') {
+    const { error, data } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      Alert.alert("Error", error.message);
+    } else {
+
+      // Buscar en la tabla DESPACHADOR
+      const { data: despachador, error: errorDesp } = await supabase
+        .from('despachador')
+        .select('*')
+        .eq('correo', email)
+        .single();
+
+      if (despachador) {
         navigation.navigate('HomeDispatcher');
-      } else if (userData.rol === 'cliente') {
-        navigation.navigate('HomeClient');
-      } else {
-        Alert.alert("Error", "Rol desconocido");
+        return;
       }
-    } catch (error) {
-      Alert.alert("Error", "Credenciales inválidas o usuario no encontrado.");
-    }
+
+      // Buscar en la tabla CONDUCTOR
+      const { data: conductor, error: errorCond } = await supabase
+        .from('conductor')
+        .select('*')
+        .eq('correo', email)
+        .single();
+
+      if (conductor) {
+        navigation.navigate('HomeDriver');
+        return;
+      }
+
+      Alert.alert("Error", "No se encontró el usuario en ninguna tabla de roles.");
+    };
   };
 
   return (
