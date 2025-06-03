@@ -16,8 +16,10 @@ import {
 import { supabase } from '../../api/supabaseConfig';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../contexts/ThemeContext';
 
 export default function RegisterScreen({ navigation }: any) {
+  const { theme, isDark } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<'despachador' | 'conductor' | ''>('');
@@ -121,17 +123,18 @@ export default function RegisterScreen({ navigation }: any) {
 
   return (
     <TouchableWithoutFeedback onPress={dismissKeyboard}>
-      <View style={styles.container}>
+      <View style={[styles.container, isDark && styles.darkContainer]}>
         <LinearGradient
-          colors={['#f0f2ff', '#e2e6ff']}
+          colors={isDark ? theme.backgroundGradient : ['#f0f2ff', '#e2e6ff']}
           style={styles.background}
         />
-        <StatusBar style="dark" />
+        <StatusBar style={isDark ? "light" : "dark"} />
         
         <ScrollView 
           contentContainerStyle={styles.scrollContainer}
           showsVerticalScrollIndicator={false}
           horizontal={false}
+          showsHorizontalScrollIndicator={false}
           scrollEnabled={true}
           bounces={true}
           alwaysBounceHorizontal={false}
@@ -140,22 +143,24 @@ export default function RegisterScreen({ navigation }: any) {
           scrollEventThrottle={16}
           decelerationRate="normal"
           keyboardShouldPersistTaps="handled"
+          overScrollMode="never"
         >
-          <View style={styles.card}>
-            <Text style={styles.title}>Crear cuenta</Text>
-            <Text style={styles.subtitle}>Únete a nuestra plataforma de gestión</Text>
+          <View style={[styles.card, isDark && styles.darkCard]}>
+            <Text style={[styles.title, isDark && styles.darkTitle]}>Crear cuenta</Text>
+            <Text style={[styles.subtitle, isDark && styles.darkSubtitle]}>Únete a nuestra plataforma de gestión</Text>
             
             {/* Email input */}
-            <View style={styles.inputContainer}>
-              <Ionicons name="mail-outline" size={20} color="#888" style={styles.inputIcon} />
+            <View style={[styles.inputContainer, isDark && styles.darkInputContainer]}>
+              <Ionicons name="mail-outline" size={20} color={isDark ? "#aaa" : "#888"} style={styles.inputIcon} />
               <TextInput
                 placeholder="Correo Electrónico"
+                placeholderTextColor={isDark ? "#999" : "#888"}
                 value={email}
                 onChangeText={(text) => {
                   setEmail(text);
                   if (emailError) validateEmail(text);
                 }}
-                style={styles.input}
+                style={[styles.input, isDark && styles.darkInput]}
                 autoCapitalize="none"
                 keyboardType="email-address"
                 onBlur={() => validateEmail(email)}
@@ -164,14 +169,15 @@ export default function RegisterScreen({ navigation }: any) {
             {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
             
             {/* Password input */}
-            <View style={styles.inputContainer}>
-              <Ionicons name="lock-closed-outline" size={20} color="#888" style={styles.inputIcon} />
+            <View style={[styles.inputContainer, isDark && styles.darkInputContainer]}>
+              <Ionicons name="lock-closed-outline" size={20} color={isDark ? "#aaa" : "#888"} style={styles.inputIcon} />
               <TextInput
                 placeholder="Contraseña"
+                placeholderTextColor={isDark ? "#999" : "#888"}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
-                style={[styles.input, { paddingRight: 40 }]}
+                style={[styles.input, isDark && styles.darkInput, { paddingRight: 40 }]}
               />
               <TouchableOpacity 
                 style={styles.eyeIcon} 
@@ -180,29 +186,34 @@ export default function RegisterScreen({ navigation }: any) {
                 <Ionicons 
                   name={showPassword ? "eye-off-outline" : "eye-outline"} 
                   size={20} 
-                  color="#888" 
+                  color={isDark ? "#aaa" : "#888"} 
                 />
               </TouchableOpacity>
             </View>
             
             {/* Roles selection */}
-            <Text style={styles.sectionTitle}>Selecciona un rol:</Text>
+            <Text style={[styles.sectionTitle, isDark && styles.darkSectionTitle]}>Selecciona un rol:</Text>
             <View style={styles.roleContainer}>
               <TouchableOpacity
                 style={[
                   styles.roleButton,
-                  role === 'despachador' && styles.roleButtonSelected
+                  isDark && styles.darkRoleButton,
+                  role === 'despachador' && styles.roleButtonSelected,
+                  role === 'despachador' && isDark && styles.darkRoleButtonSelected
                 ]}
                 onPress={() => setRole('despachador')}
               >
                 <Ionicons 
                   name="briefcase-outline" 
                   size={20} 
-                  color={role === 'despachador' ? '#fff' : '#3949ab'} 
+                  color={role === 'despachador' 
+                    ? '#fff' 
+                    : (isDark ? theme.primary : '#3949ab')} 
                   style={styles.roleIcon}
                 />
                 <Text style={[
                   styles.roleText, 
+                  isDark && styles.darkRoleText,
                   role === 'despachador' && styles.roleTextSelected
                 ]}>
                   Despachador
@@ -212,18 +223,23 @@ export default function RegisterScreen({ navigation }: any) {
               <TouchableOpacity
                 style={[
                   styles.roleButton,
-                  role === 'conductor' && styles.roleButtonSelected
+                  isDark && styles.darkRoleButton,
+                  role === 'conductor' && styles.roleButtonSelected,
+                  role === 'conductor' && isDark && styles.darkRoleButtonSelected
                 ]}
                 onPress={() => setRole('conductor')}
               >
                 <Ionicons 
                   name="car-outline" 
                   size={20} 
-                  color={role === 'conductor' ? '#fff' : '#3949ab'} 
+                  color={role === 'conductor' 
+                    ? '#fff' 
+                    : (isDark ? theme.primary : '#3949ab')} 
                   style={styles.roleIcon}
                 />
                 <Text style={[
-                  styles.roleText, 
+                  styles.roleText,
+                  isDark && styles.darkRoleText,
                   role === 'conductor' && styles.roleTextSelected
                 ]}>
                   Conductor
@@ -234,24 +250,26 @@ export default function RegisterScreen({ navigation }: any) {
             {/* Common fields */}
             {(role === 'despachador' || role === 'conductor') && (
               <>
-                <Text style={styles.sectionTitle}>Información personal</Text>
-                <View style={styles.inputContainer}>
-                  <Ionicons name="person-outline" size={20} color="#888" style={styles.inputIcon} />
+                <Text style={[styles.sectionTitle, isDark && styles.darkSectionTitle]}>Información personal</Text>
+                <View style={[styles.inputContainer, isDark && styles.darkInputContainer]}>
+                  <Ionicons name="person-outline" size={20} color={isDark ? "#aaa" : "#888"} style={styles.inputIcon} />
                   <TextInput
                     placeholder="Nombre completo"
+                    placeholderTextColor={isDark ? "#999" : "#888"}
                     value={nombre}
                     onChangeText={setNombre}
-                    style={styles.input}
+                    style={[styles.input, isDark && styles.darkInput]}
                   />
                 </View>
                 
-                <View style={styles.inputContainer}>
-                  <Ionicons name="call-outline" size={20} color="#888" style={styles.inputIcon} />
+                <View style={[styles.inputContainer, isDark && styles.darkInputContainer]}>
+                  <Ionicons name="call-outline" size={20} color={isDark ? "#aaa" : "#888"} style={styles.inputIcon} />
                   <TextInput
                     placeholder="Teléfono"
+                    placeholderTextColor={isDark ? "#999" : "#888"}
                     value={telefono}
                     onChangeText={setTelefono}
-                    style={styles.input}
+                    style={[styles.input, isDark && styles.darkInput]}
                     keyboardType="phone-pad"
                   />
                 </View>
@@ -261,41 +279,44 @@ export default function RegisterScreen({ navigation }: any) {
             {/* Conductor fields */}
             {role === 'conductor' && (
               <>
-                <Text style={styles.sectionTitle}>Información del conductor</Text>
-                <View style={styles.inputContainer}>
-                  <Ionicons name="location-outline" size={20} color="#888" style={styles.inputIcon} />
+                <Text style={[styles.sectionTitle, isDark && styles.darkSectionTitle]}>Información del conductor</Text>
+                <View style={[styles.inputContainer, isDark && styles.darkInputContainer]}>
+                  <Ionicons name="location-outline" size={20} color={isDark ? "#aaa" : "#888"} style={styles.inputIcon} />
                   <TextInput
                     placeholder="Estado"
+                    placeholderTextColor={isDark ? "#999" : "#888"}
                     value={estado}
                     onChangeText={setEstado}
-                    style={styles.input}
+                    style={[styles.input, isDark && styles.darkInput]}
                   />
                 </View>
                 
-                <View style={styles.inputContainer}>
-                  <Ionicons name="card-outline" size={20} color="#888" style={styles.inputIcon} />
+                <View style={[styles.inputContainer, isDark && styles.darkInputContainer]}>
+                  <Ionicons name="card-outline" size={20} color={isDark ? "#aaa" : "#888"} style={styles.inputIcon} />
                   <TextInput
                     placeholder="Número de licencia"
+                    placeholderTextColor={isDark ? "#999" : "#888"}
                     value={licencia}
                     onChangeText={setLicencia}
-                    style={styles.input}
+                    style={[styles.input, isDark && styles.darkInput]}
                   />
                 </View>
                 
-                <View style={styles.inputContainer}>
-                  <Ionicons name="car-sport-outline" size={20} color="#888" style={styles.inputIcon} />
+                <View style={[styles.inputContainer, isDark && styles.darkInputContainer]}>
+                  <Ionicons name="car-sport-outline" size={20} color={isDark ? "#aaa" : "#888"} style={styles.inputIcon} />
                   <TextInput
                     placeholder="Tipo de vehículo"
+                    placeholderTextColor={isDark ? "#999" : "#888"}
                     value={vehiculo}
                     onChangeText={setVehiculo}
-                    style={styles.input}
+                    style={[styles.input, isDark && styles.darkInput]}
                   />
                 </View>
               </>
             )}
             
             <TouchableOpacity 
-              style={styles.button} 
+              style={[styles.button, isDark && styles.darkButton]} 
               onPress={handleRegister}
               disabled={loading}
             >
@@ -307,13 +328,15 @@ export default function RegisterScreen({ navigation }: any) {
             </TouchableOpacity>
             
             <TouchableOpacity onPress={() => navigation.goBack()}>
-              <Text style={styles.loginLink}>¿Ya tienes cuenta? <Text style={styles.loginLinkBold}>Iniciar sesión</Text></Text>
+              <Text style={[styles.loginLink, isDark && styles.darkLoginLink]}>
+                ¿Ya tienes cuenta? <Text style={[styles.loginLinkBold, isDark && styles.darkLoginLinkBold]}>Iniciar sesión</Text>
+              </Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>© 2025 DeliverTrack</Text>
+          <Text style={[styles.footerText, isDark && styles.darkFooterText]}>© 2025 Nombre app</Text>
         </View>
       </View>
     </TouchableWithoutFeedback>
@@ -329,6 +352,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
   },
+  darkContainer: {
+    backgroundColor: '#121212',
+  },
   scrollContainer: {
     flexGrow: 1,
     justifyContent: 'center',
@@ -336,6 +362,7 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
     paddingBottom: 60, // Espacio adicional al final
     width: '100%',
+    maxWidth: '100%', // Add this to prevent overflow
   },
   background: {
     position: 'absolute',
@@ -356,17 +383,28 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 5,
   },
+  darkCard: {
+    backgroundColor: '#1E1E2E',
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+  },
   title: {
     fontSize: 32,
     fontWeight: 'bold',
     marginBottom: 8,
     color: '#1a237e',
   },
+  darkTitle: {
+    color: '#E0E0FF',
+  },
   subtitle: {
     fontSize: 16,
     color: '#7986cb',
     marginBottom: 30,
     textAlign: 'center',
+  },
+  darkSubtitle: {
+    color: '#A2A2CF',
   },
   sectionTitle: {
     fontSize: 16,
@@ -375,6 +413,9 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginBottom: 12,
     marginTop: 10,
+  },
+  darkSectionTitle: {
+    color: '#5B67CA',
   },
   inputContainer: {
     flexDirection: 'row',
@@ -388,6 +429,10 @@ const styles = StyleSheet.create({
     height: 56,
     paddingHorizontal: 16,
   },
+  darkInputContainer: {
+    backgroundColor: '#2D2D3A',
+    borderColor: '#3D3D50',
+  },
   inputIcon: {
     marginRight: 12,
   },
@@ -396,6 +441,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
     height: '100%',
+  },
+  darkInput: {
+    color: '#E0E0FF',
   },
   eyeIcon: {
     position: 'absolute',
@@ -424,8 +472,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#3949ab',
   },
+  darkRoleButton: {
+    borderColor: '#5B67CA',
+  },
   roleButtonSelected: {
     backgroundColor: '#3949ab',
+  },
+  darkRoleButtonSelected: {
+    backgroundColor: '#5B67CA',
   },
   roleIcon: {
     marginRight: 8,
@@ -434,6 +488,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#3949ab',
     fontWeight: '600',
+  },
+  darkRoleText: {
+    color: '#5B67CA',
   },
   roleTextSelected: {
     color: '#fff',
@@ -452,6 +509,10 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
+  darkButton: {
+    backgroundColor: '#5B67CA',
+    shadowColor: '#5B67CA',
+  },
   buttonText: {
     color: '#fff',
     fontWeight: 'bold',
@@ -463,9 +524,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 10,
   },
+  darkLoginLink: {
+    color: '#A2A2CF',
+  },
   loginLinkBold: {
     fontWeight: 'bold',
     color: '#3949ab',
+  },
+  darkLoginLinkBold: {
+    color: '#5B67CA',
   },
   footer: {
     position: 'absolute',
@@ -474,5 +541,8 @@ const styles = StyleSheet.create({
   footerText: {
     color: '#9e9e9e',
     fontSize: 12,
+  },
+  darkFooterText: {
+    color: '#8F8FA8',
   }
 });

@@ -5,17 +5,19 @@ import HomeDriverScreen from '../screens/driver/HomeDriverScreen';
 import ProfileScreen from '../screens/driver/ProfileScreen';
 import MyShipmentsScreen from '../screens/driver/MyShipmentsScreen';
 import { MaterialIcons } from '@expo/vector-icons';
-import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
+import { useTheme } from '../contexts/ThemeContext';
 
 const Tab = createBottomTabNavigator();
 
 export default function DriverNavigator() {
+  const { theme, isDark } = useTheme();
+  
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: '#3066BE', // Azul más vibrante
-        tabBarInactiveTintColor: '#94A3B8',
+        tabBarActiveTintColor: theme.primary,
+        tabBarInactiveTintColor: isDark ? '#94A3B8' : '#94A3B8',
         tabBarShowLabel: true,
         tabBarLabelStyle: {
           fontSize: 12,
@@ -23,18 +25,18 @@ export default function DriverNavigator() {
           marginBottom: 8,
         },
         tabBarStyle: {
-          backgroundColor: '#FFFFFF',
+          backgroundColor: theme.cardBackground,
           borderTopWidth: 0,
-          elevation: 8, // Sombra para Android
-          shadowColor: '#000000',
+          elevation: 8,
+          shadowColor: isDark ? '#000000' : '#000000',
           shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.1,
+          shadowOpacity: isDark ? 0.2 : 0.1,
           shadowRadius: 4,
           height: Platform.OS === 'ios' ? 90 : 80,
           paddingTop: 10,
           paddingBottom: Platform.OS === 'ios' ? 30 : 10,
-          borderTopLeftRadius: 20,
-          borderTopRightRadius: 20,
+          borderTopLeftRadius: 0,
+          borderTopRightRadius: 0,
           position: 'absolute',
         },
         tabBarItemStyle: {
@@ -53,7 +55,7 @@ export default function DriverNavigator() {
           return (
             <View style={styles.iconContainer}>
               <MaterialIcons name={iconName} color={color} size={size + 2} />
-              {focused && <View style={styles.indicator} />}
+              {focused && <View style={[styles.indicator, { backgroundColor: theme.primary }]} />}
             </View>
           );
         },
@@ -97,6 +99,5 @@ const styles = StyleSheet.create({
     width: 5,
     height: 5,
     borderRadius: 2.5,
-    backgroundColor: '#3066BE',
   },
 });

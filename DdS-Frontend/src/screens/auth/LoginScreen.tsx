@@ -17,8 +17,12 @@ import {
 import { supabase } from '../../api/supabaseConfig';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../contexts/ThemeContext'; // Import the theme hook
 
 export default function LoginScreen({ navigation }: any) {
+  // Get the current theme from context
+  const { theme, isDark, toggleTheme } = useTheme();
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -106,17 +110,32 @@ export default function LoginScreen({ navigation }: any) {
     <TouchableWithoutFeedback onPress={dismissKeyboard}>
       <View style={styles.container}>
         <LinearGradient
-          colors={['#f0f2ff', '#e2e6ff']}
+          colors={theme.backgroundGradient}
           style={styles.background}
         />
-        <StatusBar style="dark" />
+        <StatusBar style={isDark ? "light" : "dark"} />
         
-        <View style={styles.card}>
-          <Text style={styles.title}>Bienvenido</Text>
-          <Text style={styles.subtitle}>Gestión de despachos y envíos</Text>
+        {/* Theme toggle button */}
+        <TouchableOpacity 
+          style={styles.themeToggle}
+          onPress={toggleTheme}
+        >
+          <Ionicons 
+            name={isDark ? "sunny-outline" : "moon-outline"} 
+            size={24} 
+            color={theme.textPrimary} 
+          />
+        </TouchableOpacity>
+        
+        <View style={[styles.card, { backgroundColor: theme.cardBackground }]}>
+          <Text style={[styles.title, { color: theme.textPrimary }]}>Bienvenido</Text>
+          <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Gestión de despachos y envíos</Text>
           
-          <View style={styles.inputContainer}>
-            <Ionicons name="mail-outline" size={20} color="#888" style={styles.inputIcon} />
+          <View style={[styles.inputContainer, { 
+            borderColor: theme.border, 
+            backgroundColor: theme.inputBackground 
+          }]}>
+            <Ionicons name="mail-outline" size={20} color={theme.textTertiary} style={styles.inputIcon} />
             <TextInput
               placeholder="Correo Electrónico"
               value={email}
@@ -124,22 +143,27 @@ export default function LoginScreen({ navigation }: any) {
                 setEmail(text);
                 if (emailError) validateEmail(text);
               }}
-              style={styles.input}
+              style={[styles.input, { color: theme.textPrimary }]}
               autoCapitalize="none"
               keyboardType="email-address"
               onBlur={() => validateEmail(email)}
+              placeholderTextColor={theme.textTertiary}
             />
           </View>
-          {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+          {emailError ? <Text style={[styles.errorText, { color: theme.error }]}>{emailError}</Text> : null}
           
-          <View style={styles.inputContainer}>
-            <Ionicons name="lock-closed-outline" size={20} color="#888" style={styles.inputIcon} />
+          <View style={[styles.inputContainer, { 
+            borderColor: theme.border, 
+            backgroundColor: theme.inputBackground 
+          }]}>
+            <Ionicons name="lock-closed-outline" size={20} color={theme.textTertiary} style={styles.inputIcon} />
             <TextInput
               placeholder="Contraseña"
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
-              style={[styles.input, { paddingRight: 40 }]}
+              style={[styles.input, { color: theme.textPrimary, paddingRight: 40 }]}
+              placeholderTextColor={theme.textTertiary}
             />
             <TouchableOpacity 
               style={styles.eyeIcon} 
@@ -148,34 +172,50 @@ export default function LoginScreen({ navigation }: any) {
               <Ionicons 
                 name={showPassword ? "eye-off-outline" : "eye-outline"} 
                 size={20} 
-                color="#888" 
+                color={theme.textTertiary} 
               />
             </TouchableOpacity>
           </View>
           
-          <TouchableOpacity style={styles.forgotPassword} onPress={() => Alert.alert("Información", "Contacta al administrador para restablecer tu contraseña")}>
-            <Text style={styles.forgotPasswordText}>¿Olvidaste tu contraseña?</Text>
+          <TouchableOpacity 
+            style={styles.forgotPassword} 
+            onPress={() => Alert.alert("Información", "Contacta al administrador para restablecer tu contraseña")}
+          >
+            <Text style={[styles.forgotPasswordText, { color: theme.primary }]}>
+              ¿Olvidaste tu contraseña?
+            </Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
-            style={styles.button} 
+            style={[styles.button, { 
+              backgroundColor: theme.primary,
+              shadowColor: theme.primary 
+            }]} 
             onPress={handleLogin}
             disabled={isLoading}
           >
             {isLoading ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={theme.textInverse} />
             ) : (
-              <Text style={styles.buttonText}>INICIAR SESIÓN</Text>
+              <Text style={[styles.buttonText, { color: theme.textInverse }]}>
+                INICIAR SESIÓN
+              </Text>
             )}
           </TouchableOpacity>
           
           <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-            <Text style={styles.register}>¿No tienes cuenta? <Text style={styles.registerBold}>Regístrate</Text></Text>
+            <Text style={[styles.register, { color: theme.neutral }]}>
+              ¿No tienes cuenta? <Text style={[styles.registerBold, { color: theme.primary }]}>
+                Regístrate
+              </Text>
+            </Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>© 2025 DeliverTrack</Text>
+          <Text style={[styles.footerText, { color: theme.neutral }]}>
+            © 2025 Nombre app
+          </Text>
         </View>
       </View>
     </TouchableWithoutFeedback>
@@ -198,8 +238,19 @@ const styles = StyleSheet.create({
     top: 0,
     height: height,
   },
+  themeToggle: {
+    position: 'absolute',
+    top: 50,
+    right: 30,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+  },
   card: {
-    backgroundColor: '#fff',
     borderRadius: 24,
     padding: 35,
     width: width > 500 ? 450 : width * 0.9,
@@ -214,11 +265,9 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: 'bold',
     marginBottom: 8,
-    color: '#1a237e',
   },
   subtitle: {
     fontSize: 16,
-    color: '#7986cb',
     marginBottom: 30,
     textAlign: 'center',
   },
@@ -227,8 +276,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    backgroundColor: '#f7f7fa',
     borderRadius: 14,
     marginBottom: 16,
     height: 56,
@@ -240,7 +287,6 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
-    color: '#333',
     height: '100%',
   },
   eyeIcon: {
@@ -248,7 +294,6 @@ const styles = StyleSheet.create({
     right: 16,
   },
   errorText: {
-    color: '#f44336',
     fontSize: 12,
     alignSelf: 'flex-start',
     marginBottom: 8,
@@ -259,43 +304,36 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   forgotPasswordText: {
-    color: '#3949ab',
     fontSize: 14,
   },
   button: {
-    backgroundColor: '#3949ab',
     paddingVertical: 16,
     borderRadius: 14,
     width: '100%',
     alignItems: 'center',
     marginBottom: 20,
-    shadowColor: '#3949ab',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
   },
   buttonText: {
-    color: '#fff',
     fontWeight: 'bold',
     fontSize: 16,
     letterSpacing: 1,
   },
   register: {
-    color: '#666',
     fontSize: 14,
     marginTop: 10,
   },
   registerBold: {
     fontWeight: 'bold',
-    color: '#3949ab',
   },
   footer: {
     position: 'absolute',
     bottom: 20,
   },
   footerText: {
-    color: '#9e9e9e',
     fontSize: 12,
   }
 });
