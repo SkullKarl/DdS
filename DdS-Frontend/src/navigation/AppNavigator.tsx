@@ -6,17 +6,22 @@ import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import HomeClientScreen from '../screens/client/HomeClientScreen';
 import HomeDispatcherScreen from '../screens/dispatcher/HomeDispatcherScreen';
-import HomeDriverScreen from '../screens/driver/HomeDriverScreen';
-
+import DriverNavigator from './DriverNavigator'; // Importa el DriverNavigator
 const Stack = createNativeStackNavigator();
 
 export default function AppNavigator() {
   return (
-    <Stack.Navigator initialRouteName="Login">
+    <Stack.Navigator 
+      id={undefined}
+      initialRouteName="Login"
+      screenOptions={{
+        headerShown: false, // Ocultar el header predeterminado
+        contentStyle: { backgroundColor: '#ffffff' },
+      }}
+    >
       <Stack.Screen 
         name="Login" 
         component={LoginScreen} 
-        options={{ headerShown: false }}
       />
       <Stack.Screen 
         name="Register" 
@@ -25,22 +30,18 @@ export default function AppNavigator() {
       <Stack.Screen 
         name="HomeAdmin" 
         component={HomeAdminScreen} 
-        options={{ title: "Panel de Administrador" }}
       />
       <Stack.Screen 
         name="HomeClient" 
         component={HomeClientScreen} 
-        options={{ title: "Inicio Cliente" }}
       />
       <Stack.Screen 
         name="HomeDriver" 
-        component={HomeDriverScreen} 
-        options={{ title: "Inicio Conductor" }}
+        component={DriverNavigator} // Cambia a usar el DriverNavigator
       />
-        <Stack.Screen 
+      <Stack.Screen 
         name="HomeDispatcher" 
         component={HomeDispatcherScreen} 
-        options={{ title: "Inicio Despachador" }}
       />
     </Stack.Navigator>
   );
