@@ -1,6 +1,6 @@
 // src/api/authService.ts
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { crearConductor, crearDespachador, getConductorByCorreo, getDespachadorByCorreo } from './backendService';
+import { crearConductor, crearDespachador } from './backendService';
 import { auth } from './firebaseConfig';
 const BASE_URL = "http://127.0.0.1:8000";
 

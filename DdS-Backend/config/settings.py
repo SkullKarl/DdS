@@ -25,7 +25,7 @@ from dotenv import load_dotenv
 load_dotenv()  # Carga las variables del archivo .env
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-egtk6$o$v%s9kz&_@)(k^uo=*lq&tm2p!p8k8^*k-u#_+*m69i'
+SECRET_KEY = os.getenv('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
@@ -85,11 +85,11 @@ WSGI_APPLICATION = 'config.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'gestion_g206',
-        'USER': 'gestion_g206_user',
-        'PASSWORD': 'Z4VwCnKyFFzTcbv9GFZHQiADx5Ea7HXt',
-        'HOST': 'dpg-d0v1qti4d50c73e33qrg-a.virginia-postgres.render.com',
-        'PORT': '5432',
+        'NAME': os.getenv('DB_NAME'),
+        'USER': os.getenv('DB_USER'),
+        'PASSWORD': os.getenv('DB_PASSWORD'),
+        'HOST': os.getenv('DB_HOST'),
+        'PORT': os.getenv('DB_PORT'),
     }
 }
 
