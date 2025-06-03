@@ -33,7 +33,7 @@ export default function DriverNavigator() {
           shadowOpacity: isDark ? 0.2 : 0.1,
           shadowRadius: 4,
           height: Platform.OS === 'ios' ? 90 : 80,
-          paddingTop: 10,
+          paddingTop: -10,
           paddingBottom: Platform.OS === 'ios' ? 30 : 10,
           borderTopLeftRadius: 0,
           borderTopRightRadius: 0,

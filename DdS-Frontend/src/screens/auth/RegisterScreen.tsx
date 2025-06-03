@@ -11,7 +11,8 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
   ScrollView,
-  Dimensions
+  Dimensions,
+  Platform
 } from 'react-native';
 import { supabase } from '../../api/supabaseConfig';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -122,7 +123,7 @@ export default function RegisterScreen({ navigation }: any) {
   };
 
   return (
-    <TouchableWithoutFeedback onPress={dismissKeyboard}>
+    Platform.OS === 'web' ? (
       <View style={[styles.container, isDark && styles.darkContainer]}>
         <LinearGradient
           colors={isDark ? theme.backgroundGradient : ['#f0f2ff', '#e2e6ff']}
@@ -142,7 +143,7 @@ export default function RegisterScreen({ navigation }: any) {
           directionalLockEnabled={true}
           scrollEventThrottle={16}
           decelerationRate="normal"
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="never" // Changed for web
           overScrollMode="never"
         >
           <View style={[styles.card, isDark && styles.darkCard]}>
@@ -339,7 +340,226 @@ export default function RegisterScreen({ navigation }: any) {
           <Text style={[styles.footerText, isDark && styles.darkFooterText]}>© 2025 Nombre app</Text>
         </View>
       </View>
-    </TouchableWithoutFeedback>
+    ) : (
+      <TouchableWithoutFeedback onPress={dismissKeyboard}>
+        <View style={[styles.container, isDark && styles.darkContainer]}>
+          <LinearGradient
+            colors={isDark ? theme.backgroundGradient : ['#f0f2ff', '#e2e6ff']}
+            style={styles.background}
+          />
+          <StatusBar style={isDark ? "light" : "dark"} />
+          
+          <ScrollView 
+            contentContainerStyle={styles.scrollContainer}
+            showsVerticalScrollIndicator={false}
+            horizontal={false}
+            showsHorizontalScrollIndicator={false}
+            scrollEnabled={true}
+            bounces={true}
+            alwaysBounceHorizontal={false}
+            alwaysBounceVertical={true}
+            directionalLockEnabled={true}
+            scrollEventThrottle={16}
+            decelerationRate="normal"
+            keyboardShouldPersistTaps="handled"
+            overScrollMode="never"
+          >
+            <View style={[styles.card, isDark && styles.darkCard]}>
+              <Text style={[styles.title, isDark && styles.darkTitle]}>Crear cuenta</Text>
+              <Text style={[styles.subtitle, isDark && styles.darkSubtitle]}>Únete a nuestra plataforma de gestión</Text>
+              
+              {/* Email input */}
+              <View style={[styles.inputContainer, isDark && styles.darkInputContainer]}>
+                <Ionicons name="mail-outline" size={20} color={isDark ? "#aaa" : "#888"} style={styles.inputIcon} />
+                <TextInput
+                  placeholder="Correo Electrónico"
+                  placeholderTextColor={isDark ? "#999" : "#888"}
+                  value={email}
+                  onChangeText={(text) => {
+                    setEmail(text);
+                    if (emailError) validateEmail(text);
+                  }}
+                  style={[styles.input, isDark && styles.darkInput]}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  onBlur={() => validateEmail(email)}
+                />
+              </View>
+              {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+              
+              {/* Password input */}
+              <View style={[styles.inputContainer, isDark && styles.darkInputContainer]}>
+                <Ionicons name="lock-closed-outline" size={20} color={isDark ? "#aaa" : "#888"} style={styles.inputIcon} />
+                <TextInput
+                  placeholder="Contraseña"
+                  placeholderTextColor={isDark ? "#999" : "#888"}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  style={[styles.input, isDark && styles.darkInput, { paddingRight: 40 }]}
+                />
+                <TouchableOpacity 
+                  style={styles.eyeIcon} 
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  <Ionicons 
+                    name={showPassword ? "eye-off-outline" : "eye-outline"} 
+                    size={20} 
+                    color={isDark ? "#aaa" : "#888"} 
+                  />
+                </TouchableOpacity>
+              </View>
+              
+              {/* Roles selection */}
+              <Text style={[styles.sectionTitle, isDark && styles.darkSectionTitle]}>Selecciona un rol:</Text>
+              <View style={styles.roleContainer}>
+                <TouchableOpacity
+                  style={[
+                    styles.roleButton,
+                    isDark && styles.darkRoleButton,
+                    role === 'despachador' && styles.roleButtonSelected,
+                    role === 'despachador' && isDark && styles.darkRoleButtonSelected
+                  ]}
+                  onPress={() => setRole('despachador')}
+                >
+                  <Ionicons 
+                    name="briefcase-outline" 
+                    size={20} 
+                    color={role === 'despachador' 
+                      ? '#fff' 
+                      : (isDark ? theme.primary : '#3949ab')} 
+                    style={styles.roleIcon}
+                  />
+                  <Text style={[
+                    styles.roleText, 
+                    isDark && styles.darkRoleText,
+                    role === 'despachador' && styles.roleTextSelected
+                  ]}>
+                    Despachador
+                  </Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[
+                    styles.roleButton,
+                    isDark && styles.darkRoleButton,
+                    role === 'conductor' && styles.roleButtonSelected,
+                    role === 'conductor' && isDark && styles.darkRoleButtonSelected
+                  ]}
+                  onPress={() => setRole('conductor')}
+                >
+                  <Ionicons 
+                    name="car-outline" 
+                    size={20} 
+                    color={role === 'conductor' 
+                      ? '#fff' 
+                      : (isDark ? theme.primary : '#3949ab')} 
+                    style={styles.roleIcon}
+                  />
+                  <Text style={[
+                    styles.roleText,
+                    isDark && styles.darkRoleText,
+                    role === 'conductor' && styles.roleTextSelected
+                  ]}>
+                    Conductor
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              
+              {/* Common fields */}
+              {(role === 'despachador' || role === 'conductor') && (
+                <>
+                  <Text style={[styles.sectionTitle, isDark && styles.darkSectionTitle]}>Información personal</Text>
+                  <View style={[styles.inputContainer, isDark && styles.darkInputContainer]}>
+                    <Ionicons name="person-outline" size={20} color={isDark ? "#aaa" : "#888"} style={styles.inputIcon} />
+                    <TextInput
+                      placeholder="Nombre completo"
+                      placeholderTextColor={isDark ? "#999" : "#888"}
+                      value={nombre}
+                      onChangeText={setNombre}
+                      style={[styles.input, isDark && styles.darkInput]}
+                    />
+                  </View>
+                  
+                  <View style={[styles.inputContainer, isDark && styles.darkInputContainer]}>
+                    <Ionicons name="call-outline" size={20} color={isDark ? "#aaa" : "#888"} style={styles.inputIcon} />
+                    <TextInput
+                      placeholder="Teléfono"
+                      placeholderTextColor={isDark ? "#999" : "#888"}
+                      value={telefono}
+                      onChangeText={setTelefono}
+                      style={[styles.input, isDark && styles.darkInput]}
+                      keyboardType="phone-pad"
+                    />
+                  </View>
+                </>
+              )}
+              
+              {/* Conductor fields */}
+              {role === 'conductor' && (
+                <>
+                  <Text style={[styles.sectionTitle, isDark && styles.darkSectionTitle]}>Información del conductor</Text>
+                  <View style={[styles.inputContainer, isDark && styles.darkInputContainer]}>
+                    <Ionicons name="location-outline" size={20} color={isDark ? "#aaa" : "#888"} style={styles.inputIcon} />
+                    <TextInput
+                      placeholder="Estado"
+                      placeholderTextColor={isDark ? "#999" : "#888"}
+                      value={estado}
+                      onChangeText={setEstado}
+                      style={[styles.input, isDark && styles.darkInput]}
+                    />
+                  </View>
+                  
+                  <View style={[styles.inputContainer, isDark && styles.darkInputContainer]}>
+                    <Ionicons name="card-outline" size={20} color={isDark ? "#aaa" : "#888"} style={styles.inputIcon} />
+                    <TextInput
+                      placeholder="Número de licencia"
+                      placeholderTextColor={isDark ? "#999" : "#888"}
+                      value={licencia}
+                      onChangeText={setLicencia}
+                      style={[styles.input, isDark && styles.darkInput]}
+                    />
+                  </View>
+                  
+                  <View style={[styles.inputContainer, isDark && styles.darkInputContainer]}>
+                    <Ionicons name="car-sport-outline" size={20} color={isDark ? "#aaa" : "#888"} style={styles.inputIcon} />
+                    <TextInput
+                      placeholder="Tipo de vehículo"
+                      placeholderTextColor={isDark ? "#999" : "#888"}
+                      value={vehiculo}
+                      onChangeText={setVehiculo}
+                      style={[styles.input, isDark && styles.darkInput]}
+                    />
+                  </View>
+                </>
+              )}
+              
+              <TouchableOpacity 
+                style={[styles.button, isDark && styles.darkButton]} 
+                onPress={handleRegister}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.buttonText}>REGISTRARSE</Text>
+                )}
+              </TouchableOpacity>
+              
+              <TouchableOpacity onPress={() => navigation.goBack()}>
+                <Text style={[styles.loginLink, isDark && styles.darkLoginLink]}>
+                  ¿Ya tienes cuenta? <Text style={[styles.loginLinkBold, isDark && styles.darkLoginLinkBold]}>Iniciar sesión</Text>
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+
+          <View style={styles.footer}>
+            <Text style={[styles.footerText, isDark && styles.darkFooterText]}>© 2025 Nombre app</Text>
+          </View>
+        </View>
+      </TouchableWithoutFeedback>
+    )
   );
 }
 
