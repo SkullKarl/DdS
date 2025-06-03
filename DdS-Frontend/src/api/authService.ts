@@ -2,6 +2,7 @@
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { crearConductor, crearDespachador, getConductorByCorreo, getDespachadorByCorreo } from './backendService';
 import { auth } from './firebaseConfig';
+const BASE_URL = "http://127.0.0.1:8000";
 
 export const register = async (
   email: string,
@@ -22,15 +23,21 @@ export const register = async (
 
   return userCredential.user;
 };
-export const login = async (email: string, password: string) => {
-  const userCredential = await signInWithEmailAndPassword(auth, email, password);
 
-  // Busca en backend si es conductor o despachador
-  const conductor = await getConductorByCorreo(email);
-  if (conductor) return { ...userCredential.user, role: 'conductor' };
 
-  const despachador = await getDespachadorByCorreo(email);
-  if (despachador) return { ...userCredential.user, role: 'despachador' };
+export const login = async (correo: string, contraseña: string) => {
+  // 1. Login con Firebase
+  const userCredential = await signInWithEmailAndPassword(auth, correo, contraseña);
+  const firebaseUser = userCredential.user;
 
-  throw new Error("Usuario no encontrado en backend");
+  // 2. Obtener UID
+  const uid = firebaseUser.uid;
+
+  // 3. Consultar a Django por el UID
+  const response = await fetch(`${BASE_URL}/usuario_por_uid/${uid}/`);
+  if (!response.ok) throw new Error("Usuario no registrado en Django");
+  const userData = await response.json();
+
+  // 4. Retornar datos para redirección
+  return userData; // { id, nombre, correo, rol }
 };

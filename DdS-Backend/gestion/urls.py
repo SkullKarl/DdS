@@ -1,3 +1,5 @@
+from django.urls import path
+from .views import usuario_por_uid
 from rest_framework import routers
 from .views import ClienteViewSet, DespachadorViewSet, ConductorViewSet
 
@@ -6,6 +8,7 @@ router.register(r'clientes', ClienteViewSet)
 router.register(r'despachadores', DespachadorViewSet)
 router.register(r'conductores', ConductorViewSet)
 
-urlpatterns = router.urls
-
-urlpatterns = list(router.urls)
+urlpatterns = [
+    path('usuario_por_uid/<str:uid>/', usuario_por_uid),
+]
+urlpatterns += router.urls

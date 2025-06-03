@@ -7,14 +7,18 @@ export default function LoginScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
+
   const handleLogin = async () => {
     try {
-      const user = await login(email, password);
-      Alert.alert("Login exitoso", `Bienvenido ${user.email}`);
-      if (user.role === 'conductor') {
+      const userData = await login(email, password);
+      if (userData.rol === 'conductor') {
         navigation.navigate('HomeDriver');
-      } else if (user.role === 'despachador') {
+      } else if (userData.rol === 'despachador') {
         navigation.navigate('HomeDispatcher');
+      } else if (userData.rol === 'cliente') {
+        navigation.navigate('HomeClient');
+      } else {
+        Alert.alert("Error", "Rol desconocido");
       }
     } catch (error) {
       Alert.alert("Error", "Credenciales inválidas o usuario no encontrado.");
