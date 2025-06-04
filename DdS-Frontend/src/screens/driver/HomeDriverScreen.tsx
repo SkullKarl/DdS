@@ -1,6 +1,6 @@
 // HomeDriverScreen.tsx
 import React from 'react';
-import { Text, View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Platform, Text } from 'react-native';
 import Map from '../../components/map/map';
 
 export default function HomeDriverScreen() {

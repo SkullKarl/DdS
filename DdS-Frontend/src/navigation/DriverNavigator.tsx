@@ -11,7 +11,7 @@ const Tab = createBottomTabNavigator();
 
 export default function DriverNavigator() {
   const { theme, isDark } = useTheme();
-  
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -61,23 +61,23 @@ export default function DriverNavigator() {
         },
       })}
     >
-      <Tab.Screen 
-        name="Home" 
-        component={HomeDriverScreen} 
+      <Tab.Screen
+        name="Home"
+        component={HomeDriverScreen}
         options={{
-          tabBarLabel: 'Inicio',
+          tabBarLabel: 'Mapa',
         }}
       />
-      <Tab.Screen 
-        name="MyShipments" 
-        component={MyShipmentsScreen} 
+      <Tab.Screen
+        name="MyShipments"
+        component={MyShipmentsScreen}
         options={{
           tabBarLabel: 'Mis Envíos',
         }}
       />
-      <Tab.Screen 
-        name="Profile" 
-        component={ProfileScreen} 
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
         options={{
           tabBarLabel: 'Mi Perfil',
         }}
