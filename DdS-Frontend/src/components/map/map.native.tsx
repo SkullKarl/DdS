@@ -5,24 +5,25 @@ import * as Location from "expo-location";
 import polyline from "@mapbox/polyline";
 import { getDirections } from "../../api/directionsApi";
 import { getCoordinatesFromAddress } from "../../api/gocodingApi";
+import { supabase } from "../../api/supabaseConfig";
 
 export default function Map() {
     const [myLocation, setMyLocation] = React.useState(null);
     const [routeCoords, setRouteCoords] = React.useState([]);
     const [waypoints, setWaypoints] = React.useState([]);
 
-    // direcciones 
-    const addresses = [
-        "Ohiggins 1472, Concepción, Chile",
-        "plaza de la independencia, Concepción, Chile",
-        "terminal de buses Collao, Concepción, Chile",
-        "janequeo 875, Concepción, Chile",
-    ];
-
-    // coordenadas desde direcciones
     React.useEffect(() => {
-        const fetchCoords = async () => {
+        const fetchAddressesFromDB = async () => {
             try {
+                const { data, error } = await supabase
+                    .from("paquete")
+                    .select("direccion_entrega")
+                    .not("direccion_entrega", "is", null);
+
+                if (error) throw error;
+
+                const addresses = data.map(item => item.direccion_entrega);
+
                 const coordsList = await Promise.all(
                     addresses.map(async (address) => {
                         const coord = await getCoordinatesFromAddress(address);
@@ -33,14 +34,13 @@ export default function Map() {
                 const validCoords = coordsList.filter(Boolean);
                 setWaypoints(validCoords);
             } catch (error) {
-                console.warn("Error obteniendo coordenadas:", error);
+                console.warn("No se obtuvieron las direcciones:", error);
             }
         };
 
-        fetchCoords();
+        fetchAddressesFromDB();
     }, []);
 
-    // Seguimiento en tiempo real y calculo de ruta
     React.useEffect(() => {
         let locationSubscription;
 
@@ -100,7 +100,7 @@ export default function Map() {
         <View style={styles.container}>
             <MapView
                 style={styles.map}
-                region={myLocation}
+                initialRegion={myLocation}
                 showsUserLocation={true}
                 showsMyLocationButton={true}
             >
