@@ -1,8 +1,13 @@
-const GOOGLE_MAPS_APIKEY = 'AIzaSyAl55pXyc10sWQ49ttxwRaRpaoQoP1Wbqs';
+const GOOGLE_MAPS_APIKEY = "api_key";
 
-const BASE_URL = 'api_key';
+const BASE_URL = "https://maps.googleapis.com/maps/api/directions/json";
 
-export async function getDirections(origin, destination, waypoints = [], mode = 'driving') {
+export async function getDirections(
+  origin,
+  destination,
+  waypoints = [],
+  mode = "driving"
+) {
   const originStr = `${origin.latitude},${origin.longitude}`;
   const destinationStr = `${destination.latitude},${destination.longitude}`;
   const waypointsStr = waypoints.length > 0
@@ -16,7 +21,7 @@ export async function getDirections(origin, destination, waypoints = [], mode = 
     const data = await response.json();
     return data;
   } catch (error) {
-    console.warn('Error fetching directions:', error);
+    console.warn("obteniendo direcciones:", error);
     throw error;
   }
 }
