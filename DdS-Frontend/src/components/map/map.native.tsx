@@ -1,127 +1,142 @@
-import { Dimensions, StyleSheet, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { Dimensions, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import MapView, { Marker, Polyline } from "react-native-maps";
-import React from "react";
 import * as Location from "expo-location";
 import polyline from "@mapbox/polyline";
-import { getDirections } from "../../api/directionsApi";
+
+import { RutaService } from "../../services/RutaService";
 import { getCoordinatesFromAddress } from "../../api/gocodingApi";
-import { supabase } from "../../api/supabaseConfig";
+import { getDirections } from "../../api/directionsApi";
 
-export default function Map() {
-    const [myLocation, setMyLocation] = React.useState(null);
-    const [routeCoords, setRouteCoords] = React.useState([]);
-    const [waypoints, setWaypoints] = React.useState([]);
+type Props = { envioId: string };
 
-    React.useEffect(() => {
-        const fetchAddressesFromDB = async () => {
-            try {
-                const { data, error } = await supabase
-                    .from("paquete")
-                    .select("direccion_entrega")
-                    .not("direccion_entrega", "is", null);
+export default function Map({ envioId }: Props) {
+    const [myLocation, setMyLocation] = useState<{
+        latitude: number;
+        longitude: number;
+        latitudeDelta: number;
+        longitudeDelta: number;
+    } | null>(null);
 
-                if (error) throw error;
+    const [direccionCoords, setDireccionCoords] = useState<
+        { direccion: string; latitude: number; longitude: number }[]
+    >([]);
 
-                const addresses = data.map(item => item.direccion_entrega);
+    const [routeCoords, setRouteCoords] = useState<
+        { latitude: number; longitude: number }[]
+    >([]);
 
-                const coordsList = await Promise.all(
-                    addresses.map(async (address) => {
-                        const coord = await getCoordinatesFromAddress(address);
-                        return coord ? { latitude: coord.latitude, longitude: coord.longitude } : null;
-                    })
-                );
-
-                const validCoords = coordsList.filter(Boolean);
-                setWaypoints(validCoords);
-            } catch (error) {
-                console.warn("No se obtuvieron las direcciones:", error);
-            }
-        };
-
-        fetchAddressesFromDB();
-    }, []);
-
-    React.useEffect(() => {
-        let locationSubscription;
-
-        const startTracking = async () => {
+    // obtener ubicacion actual
+    useEffect(() => {
+        let sub: Location.LocationSubscription;
+        const start = async () => {
             const { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== "granted") {
-                console.warn("Permisos de ubicación denegados");
+                console.warn("Permisos de ubicación no otorgados");
                 return;
             }
 
-            locationSubscription = await Location.watchPositionAsync(
+            sub = await Location.watchPositionAsync(
                 {
                     accuracy: Location.Accuracy.High,
                     timeInterval: 5000,
                     distanceInterval: 5,
                 },
-                async (location) => {
-                    const updatedLocation = {
-                        latitude: location.coords.latitude,
-                        longitude: location.coords.longitude,
+                (loc) =>
+                    setMyLocation({
+                        latitude: loc.coords.latitude,
+                        longitude: loc.coords.longitude,
                         latitudeDelta: 0.01,
                         longitudeDelta: 0.01,
-                    };
-
-                    setMyLocation(updatedLocation);
-
-                    if (waypoints.length >= 1) {
-                        const destination = waypoints[waypoints.length - 1];
-                        const intermediate = waypoints.slice(0, -1);
-
-                        try {
-                            const data = await getDirections(updatedLocation, destination, intermediate);
-                            if (data.routes && data.routes.length > 0) {
-                                const points = polyline.decode(data.routes[0].overview_polyline.points);
-                                const coords = points.map(([lat, lng]) => ({
-                                    latitude: lat,
-                                    longitude: lng,
-                                }));
-                                setRouteCoords(coords);
-                            }
-                        } catch (error) {
-                            console.warn("Error obteniendo la ruta:", error);
-                        }
-                    }
-                }
+                    })
             );
         };
+        start();
+        return () => sub?.remove();
+    }, []);
 
-        startTracking();
+    // cargar ruta y calcular la polyline
+    useEffect(() => {
+        if (!envioId || !myLocation) return;
 
-        return () => {
-            if (locationSubscription) locationSubscription.remove();
+        const cargarRuta = async () => {
+            try {
+                const directions = await RutaService.getDirections(envioId);
+                const coordsList = await Promise.all(
+                    directions.map(getCoordinatesFromAddress)
+                );
+
+                const validCoords = coordsList
+                    .map((coord, index) =>
+                        coord
+                            ? {
+                                direccion: directions[index],
+                                latitude: coord.latitude,
+                                longitude: coord.longitude,
+                            }
+                            : null
+                    )
+                    .filter(
+                        (
+                            item
+                        ): item is {
+                            direccion: string;
+                            latitude: number;
+                            longitude: number;
+                        } => !!item
+                    );
+
+                if (validCoords.length === 0) {
+                    console.warn("no hay puntos de referencia validps");
+                    return;
+                }
+
+                setDireccionCoords(validCoords);
+
+                const origen = myLocation;
+                const destino = validCoords[validCoords.length - 1];
+                const intermedios = validCoords.slice(0, validCoords.length - 1).map(({ latitude, longitude }) => ({ latitude, longitude }));
+
+                const result = await getDirections(origen, destino, intermedios);
+
+                if (result.routes?.length) {
+                    const points = polyline.decode(result.routes[0].overview_polyline.points);
+                    const coords = points.map(([lat, lng]) => ({ latitude: lat, longitude: lng }));
+                    setRouteCoords(coords);
+                } else {
+                    console.warn("error al obtener la ruta");
+                }
+            } catch (err) {
+                console.warn("error cargando la ruta o al calcular la direccion:", err);
+            }
         };
-    }, [waypoints]);
+
+        cargarRuta();
+    }, [envioId, myLocation]);
 
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container}>
             <MapView
                 style={styles.map}
                 initialRegion={myLocation}
-                showsUserLocation={true}
-                showsMyLocationButton={true}
+                showsUserLocation
+                showsMyLocationButton
             >
-                {waypoints.map((point, index) => (
+                {direccionCoords.map((m, i) => (
                     <Marker
-                        key={index}
-                        coordinate={point}
-                        title={`Punto ${index + 1}`}
+                        key={i}
+                        coordinate={{ latitude: m.latitude, longitude: m.longitude }}
+                        title={m.direccion ?? ""}
                         pinColor="red"
                     />
                 ))}
 
                 {routeCoords.length > 0 && (
-                    <Polyline
-                        coordinates={routeCoords}
-                        strokeWidth={4}
-                        strokeColor="#007AFF"
-                    />
+                    <Polyline coordinates={routeCoords} strokeWidth={4} strokeColor="#007AFF" />
                 )}
             </MapView>
-        </View>
+        </SafeAreaView>
     );
 }
 
