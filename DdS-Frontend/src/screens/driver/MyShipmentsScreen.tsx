@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Text, View, FlatList, StyleSheet, ActivityIndicator, StatusBar, Dimensions, TouchableOpacity, Animated } from 'react-native';
+import { Text, View, FlatList, StyleSheet, ActivityIndicator, StatusBar, Dimensions, TouchableOpacity, Animated, RefreshControl } from 'react-native';
 import { supabase } from '../../api/supabaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -28,11 +28,14 @@ export default function MyShipmentsScreen() {
   const [hasNewPackages, setHasNewPackages] = useState(false);
   const currentPackageIds = useRef<number[]>([]);
   const [driverId, setDriverId] = useState<number | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [oldPackages, setOldPackages] = useState<Package[]>([]);
   
   // Animation values
   const notificationOpacity = useRef(new Animated.Value(0)).current;
   const notificationTranslateY = useRef(new Animated.Value(-50)).current;
   const refreshIconRotation = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(1)).current;
 
   // Get the current driver ID when component mounts
   useEffect(() => {
@@ -106,11 +109,36 @@ export default function MyShipmentsScreen() {
     };
   }, [driverId]);
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    // Store current packages for comparison
+    setOldPackages([...packages]);
+    
+    try {
+      // Reset fade animation first
+      fadeAnim.setValue(0.7);
+      await fetchPackages();
+      
+      // Animate new items in
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }).start();
+    } catch (error: any) {
+      console.error('Error during refresh:', error);
+    } finally {
+      setTimeout(() => {
+        setRefreshing(false);
+      }, 600);
+    }
+  };
+
   const fetchPackages = async () => {
     if (!driverId) return;
     
     try {
-      setLoading(true);
+      if (!refreshing) setLoading(true);
       setHasNewPackages(false);
       
       // First, get all assignments for this driver
@@ -129,7 +157,7 @@ export default function MyShipmentsScreen() {
       if (!assignments || assignments.length === 0) {
         // No assignments for this driver
         setPackages([]);
-        setLoading(false);
+        if (!refreshing) setLoading(false);
         return;
       }
       
@@ -146,8 +174,6 @@ export default function MyShipmentsScreen() {
         throw packageError;
       }
       
-      console.log('Package data:', packageData);
-      
       // Combine the data to include dispatcher information
       const transformedData = packageData?.map(pkg => {
         // Find the matching assignment to get dispatcher info
@@ -156,7 +182,7 @@ export default function MyShipmentsScreen() {
         return {
           ...pkg,
           despachador_nombre: matchingAssignment?.despachador?.nombre || 'Desconocido',
-          despachador_id: matchingAssignment?.despachador?.id_despachador  // Changed from .id to .id_despachador
+          despachador_id: matchingAssignment?.despachador?.id_despachador
         };
       }) || [];
       
@@ -169,7 +195,7 @@ export default function MyShipmentsScreen() {
       setError(error.message);
       console.error('Error fetching packages:', error);
     } finally {
-      setLoading(false);
+      if (!refreshing) setLoading(false);
     }
   };
 
@@ -188,11 +214,44 @@ export default function MyShipmentsScreen() {
     }
   };
 
+  // Custom refresh control component
+  const renderRefreshControl = () => (
+    <RefreshControl
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+      colors={[theme.primary, theme.secondary]}
+      tintColor={theme.primary}
+      title="Actualizando..."
+      titleColor={theme.textSecondary}
+      progressBackgroundColor={theme.cardBackground}
+    />
+  );
+
   const renderItem = ({ item }: { item: Package }) => {
     const statusIcon = getStatusIcon(item.estado);
     
+    // Check if this is a new item after refresh
+    const isNewItem = refreshing && !oldPackages.some(pkg => pkg.id_paquete === item.id_paquete);
+    
+    // Apply animation style only to new items
+    const itemAnimationStyle = isNewItem ? {
+      opacity: fadeAnim,
+      transform: [{ 
+        translateY: fadeAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [20, 0]
+        })
+      }]
+    } : {};
+    
     return (
-      <View style={[styles.packageItem, { backgroundColor: theme.cardBackground }]}>
+      <Animated.View 
+        style={[
+          styles.packageItem, 
+          { backgroundColor: theme.cardBackground },
+          itemAnimationStyle
+        ]}
+      >
         <View style={styles.packageHeader}>
           <View style={styles.idContainer}>
             <Text style={[styles.packageId, { color: theme.textPrimary }]}>
@@ -241,7 +300,7 @@ export default function MyShipmentsScreen() {
             </Text>
           </View>
         </View>
-      </View>
+      </Animated.View>
     );
   };
 
@@ -345,7 +404,8 @@ export default function MyShipmentsScreen() {
     );
   };
 
-  if (loading) {
+  // Modifica la condición del renderizado de la pantalla de carga
+  if (loading && !refreshing) {
     return (
       <View style={[styles.centered, { backgroundColor: theme.background }]}>
         <StatusBar style={isDark ? "light" : "dark"} />
@@ -401,8 +461,8 @@ export default function MyShipmentsScreen() {
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
           ListFooterComponent={<View style={{ height: 100 }} />}
-          onRefresh={handleRefresh}
-          refreshing={loading}
+          refreshControl={renderRefreshControl()}
+          refreshing={false} // We're handling the refresh state manually
         />
       )}
     </View>

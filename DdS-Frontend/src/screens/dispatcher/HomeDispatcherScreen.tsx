@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Text, View, FlatList, StyleSheet, ActivityIndicator, StatusBar, Dimensions, TouchableOpacity, Modal, Alert, ScrollView } from 'react-native';
+import { 
+  Text, View, FlatList, StyleSheet, ActivityIndicator, StatusBar, 
+  Dimensions, TouchableOpacity, Modal, Alert, ScrollView, RefreshControl, Animated 
+} from 'react-native';
 import { supabase } from '../../api/supabaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -31,6 +34,9 @@ export default function HomeDispatcherScreen() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   
+  // Animation value for smooth appearance of new items
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  
   // Modal state
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
@@ -40,15 +46,40 @@ export default function HomeDispatcherScreen() {
   // Filter state
   const [activeFilter, setActiveFilter] = useState<string>('all');
 
+  // Old packages state for comparison during refresh
+  const [oldPackages, setOldPackages] = useState<Package[]>([]);
+
   // Fetch initial data
   useEffect(() => {
     fetchPackages();
     fetchDrivers();
   }, []);
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    // Store current packages instead of clearing the view
+    setOldPackages([...packages]);
+    
+    try {
+      await fetchPackages();
+      // Animate only after we have new data
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }).start();
+    } catch (error) {
+      console.error('Error during refresh:', error);
+    } finally {
+      setTimeout(() => {
+        setRefreshing(false);
+      }, 600);
+    }
+  };
+
   const fetchPackages = async () => {
     try {
-      setLoading(true);
+      if (!refreshing) setLoading(true);
       
       const { data, error } = await supabase
         .from('paquete')
@@ -58,13 +89,17 @@ export default function HomeDispatcherScreen() {
         throw error;
       }
       
+      if (refreshing) {
+        // If refreshing, animate the transition between old and new data
+        fadeAnim.setValue(0.7); // Slight fade effect but not complete disappearance
+      }
+      
       setPackages(data || []);
     } catch (error: any) {
       setError(error.message);
       console.error('Error fetching packages:', error);
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (!refreshing) setLoading(false);
     }
   };
 
@@ -185,11 +220,44 @@ export default function HomeDispatcherScreen() {
     return packages.filter(pkg => pkg.estado.toLowerCase() === status.toLowerCase()).length;
   };
 
-  const renderItem = ({ item }: { item: Package }) => {
+  // Add custom refresh control component
+  const renderRefreshControl = () => (
+    <RefreshControl
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+      colors={[theme.primary, theme.secondary]}
+      tintColor={theme.primary}
+      title="Actualizando..."
+      titleColor={theme.textSecondary}
+      progressBackgroundColor={theme.cardBackground}
+    />
+  );
+
+  const renderItem = ({ item, index }: { item: Package, index: number }) => {
     const statusIcon = getStatusIcon(item.estado);
     
+    // Staggered animation only for new items
+    const isNewItem = refreshing && !oldPackages.some(pkg => pkg.id_paquete === item.id_paquete);
+    const itemAnimationStyle = isNewItem ? {
+      opacity: fadeAnim,
+      transform: [{ 
+        translateY: fadeAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [20, 0]
+        })
+      }]
+    } : {};
+    
     return (
-      <View style={[styles.packageItem, { backgroundColor: theme.cardBackground }]}>
+      <Animated.View 
+        style={[
+          styles.packageItem, 
+          { 
+            backgroundColor: theme.cardBackground,
+          },
+          itemAnimationStyle
+        ]}
+      >
         <View style={styles.packageHeader}>
           <View style={styles.idContainer}>
             <Text style={[styles.packageId, { color: theme.textPrimary }]}>
@@ -253,7 +321,7 @@ export default function HomeDispatcherScreen() {
             </Text>
           </LinearGradient>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
     );
   };
 
@@ -293,14 +361,12 @@ export default function HomeDispatcherScreen() {
     </TouchableOpacity>
   );
 
-  if (loading) {
+  // Update this conditional to check for refreshing state too
+  if (loading && !refreshing) {
     return (
       <View style={[styles.centered, { backgroundColor: theme.background }]}>
         <StatusBar style={isDark ? "light" : "dark"} />
         <ActivityIndicator size="large" color={theme.primary} />
-        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
-          Cargando paquetes...
-        </Text>
       </View>
     );
   }
@@ -453,8 +519,8 @@ export default function HomeDispatcherScreen() {
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
           ListFooterComponent={<View style={{ height: 100 }} />}
-          onRefresh={fetchPackages}
-          refreshing={refreshing}
+          refreshControl={renderRefreshControl()}
+          onEndReachedThreshold={0.5}
         />
       )}
       
