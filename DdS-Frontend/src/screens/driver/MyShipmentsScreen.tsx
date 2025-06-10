@@ -15,6 +15,9 @@ interface Package {
   id_cliente: number;
   peso: number;
   dimensiones: string;
+  // Add dispatcher information
+  despachador_nombre?: string;
+  despachador_id?: number;
 }
 
 export default function MyShipmentsScreen() {
@@ -24,29 +27,74 @@ export default function MyShipmentsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [hasNewPackages, setHasNewPackages] = useState(false);
   const currentPackageIds = useRef<number[]>([]);
+  const [driverId, setDriverId] = useState<number | null>(null);
   
   // Animation values
   const notificationOpacity = useRef(new Animated.Value(0)).current;
   const notificationTranslateY = useRef(new Animated.Value(-50)).current;
   const refreshIconRotation = useRef(new Animated.Value(0)).current;
 
-  // Initial fetch
+  // Get the current driver ID when component mounts
   useEffect(() => {
-    fetchPackages();
+    getCurrentDriverId();
   }, []);
+
+  // Initial fetch after we have the driver ID
+  useEffect(() => {
+    if (driverId) {
+      fetchPackages();
+    }
+  }, [driverId]);
+
+  // Get the current driver ID from the logged-in user
+  const getCurrentDriverId = async () => {
+    try {
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user) {
+        throw new Error('No se pudo obtener información del usuario actual');
+      }
+      
+      console.log('Current user email:', user.email); // Debug log
+      
+      // Find the driver record associated with this user's email
+      // Note the change from 'id' to 'id_conductor' here
+      const { data: driverData, error: driverError } = await supabase
+        .from('conductor')
+        .select('id_conductor') // Changed from 'id' to 'id_conductor'
+        .eq('correo', user.email)
+        .single();
+      
+      if (driverError || !driverData) {
+        throw new Error('No se encontró el conductor asociado a este usuario');
+      }
+      
+      // Set the driver ID for use in fetching packages
+      // Note the change from 'id' to 'id_conductor' here
+      setDriverId(driverData.id_conductor); // Changed from driverData.id
+    
+    } catch (error: any) {
+      setError(error.message);
+      console.error('Error getting current driver ID:', error);
+    }
+  };
 
   // Set up subscription to listen for changes
   useEffect(() => {
+    if (!driverId) return;
+    
     const subscription = supabase
-      .channel('paquete-changes')
+      .channel('asignacion-changes')
       .on('postgres_changes', 
         { 
-          event: 'INSERT', 
+          event: '*', 
           schema: 'public', 
-          table: 'paquete' 
+          table: 'asignacion',
+          filter: `id_conductor=eq.${driverId}`
         }, 
         () => {
-          // New package detected
+          // New assignment detected for this driver
           setHasNewPackages(true);
         }
       )
@@ -56,57 +104,66 @@ export default function MyShipmentsScreen() {
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
-
-  // Alternative polling method if real-time subscriptions aren't available
-  useEffect(() => {
-    const checkNewPackages = async () => {
-      if (loading) return;
-      
-      try {
-        const { data, error } = await supabase
-          .from('paquete')
-          .select('id_paquete');
-        
-        if (error) throw error;
-        
-        const newIds = data?.map(pkg => pkg.id_paquete) || [];
-        const currentIds = currentPackageIds.current;
-        
-        // Check if there are new packages (IDs that aren't in our current list)
-        const hasNew = newIds.some(id => !currentIds.includes(id));
-        
-        if (hasNew) {
-          setHasNewPackages(true);
-        }
-      } catch (err) {
-        console.error("Error checking for new packages:", err);
-      }
-    };
-
-    // Check every 30 seconds for new packages
-    const interval = setInterval(checkNewPackages, 30000);
-    
-    return () => clearInterval(interval);
-  }, [loading]);
+  }, [driverId]);
 
   const fetchPackages = async () => {
+    if (!driverId) return;
+    
     try {
       setLoading(true);
       setHasNewPackages(false);
       
-      const { data, error } = await supabase
-        .from('paquete')
-        .select('*');
+      // First, get all assignments for this driver
+      const { data: assignments, error: assignmentError } = await supabase
+        .from('asignacion')
+        .select(`
+          id_envio,
+          despachador:id_despachador(id_despachador, nombre)
+        `)
+        .eq('id_conductor', driverId);
       
-      if (error) {
-        throw error;
+      if (assignmentError) {
+        throw assignmentError;
       }
       
-      setPackages(data || []);
+      if (!assignments || assignments.length === 0) {
+        // No assignments for this driver
+        setPackages([]);
+        setLoading(false);
+        return;
+      }
+      
+      // Get the list of shipment IDs assigned to this driver
+      const envioIds = assignments.map(assignment => assignment.id_envio);
+      
+      // Now query the paquete table to get package details
+      const { data: packageData, error: packageError } = await supabase
+        .from('paquete')
+        .select('*')
+        .in('id_envio', envioIds);
+      
+      if (packageError) {
+        throw packageError;
+      }
+      
+      console.log('Package data:', packageData);
+      
+      // Combine the data to include dispatcher information
+      const transformedData = packageData?.map(pkg => {
+        // Find the matching assignment to get dispatcher info
+        const matchingAssignment = assignments.find(a => a.id_envio === pkg.id_envio);
+        
+        return {
+          ...pkg,
+          despachador_nombre: matchingAssignment?.despachador?.nombre || 'Desconocido',
+          despachador_id: matchingAssignment?.despachador?.id_despachador  // Changed from .id to .id_despachador
+        };
+      }) || [];
+      
+      setPackages(transformedData);
       
       // Store current package IDs for comparison later
-      currentPackageIds.current = (data || []).map(pkg => pkg.id_paquete);
+      currentPackageIds.current = transformedData.map(pkg => pkg.id_paquete);
       
     } catch (error: any) {
       setError(error.message);
@@ -124,6 +181,8 @@ export default function MyShipmentsScreen() {
         return { name: 'time', color: theme.warning };
       case 'pendiente':
         return { name: 'hourglass', color: theme.neutral };
+      case 'asignado':
+        return { name: 'person', color: theme.primary };
       default:
         return { name: 'help-circle', color: theme.textTertiary };
     }
@@ -169,7 +228,14 @@ export default function MyShipmentsScreen() {
           </View>
           
           <View style={styles.detailRow}>
-            <Ionicons name="person" size={18} color={theme.textSecondary} />
+            <Ionicons name="briefcase" size={18} color={theme.textSecondary} />
+            <Text style={[styles.detailText, { color: theme.textPrimary }]}>
+              Asignado por: {item.despachador_nombre}
+            </Text>
+          </View>
+          
+          <View style={styles.detailRow}>
+            <Ionicons name="information-circle" size={18} color={theme.textSecondary} />
             <Text style={[styles.detailText, { color: theme.textPrimary }]}>
               Cliente ID: {item.id_cliente} · Envío ID: {item.id_envio}
             </Text>
@@ -271,7 +337,7 @@ export default function MyShipmentsScreen() {
               <Ionicons name="refresh" size={18} color={theme.textInverse} />
             </Animated.View>
             <Text style={[styles.newPackagesText, { color: theme.textInverse }]}>
-              Nuevos paquetes disponibles
+              Nuevos paquetes asignados
             </Text>
           </TouchableOpacity>
         </LinearGradient>
@@ -285,7 +351,7 @@ export default function MyShipmentsScreen() {
         <StatusBar style={isDark ? "light" : "dark"} />
         <ActivityIndicator size="large" color={theme.primary} />
         <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
-          Cargando paquetes...
+          Cargando tus paquetes asignados...
         </Text>
       </View>
     );
@@ -324,7 +390,7 @@ export default function MyShipmentsScreen() {
         <View style={styles.emptyContainer}>
           <Ionicons name="cube-outline" size={64} color={theme.textTertiary} />
           <Text style={[styles.noPackages, { color: theme.textTertiary }]}>
-            No hay paquetes disponibles
+            No tienes paquetes asignados
           </Text>
         </View>
       ) : (
@@ -335,6 +401,8 @@ export default function MyShipmentsScreen() {
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
           ListFooterComponent={<View style={{ height: 100 }} />}
+          onRefresh={handleRefresh}
+          refreshing={loading}
         />
       )}
     </View>

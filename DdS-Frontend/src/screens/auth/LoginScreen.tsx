@@ -30,8 +30,11 @@ export default function LoginScreen({ navigation }: any) {
   const [emailError, setEmailError] = useState('');
 
   const validateEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    // Ensure we're working with a string and trim it
+    const trimmedEmail = (email || '').trim();
+    
+    // Simplest check for email validity
+    if (!trimmedEmail || !trimmedEmail.includes('@') || !trimmedEmail.includes('.')) {
       setEmailError('Por favor ingresa un correo electrónico válido');
       return false;
     }
@@ -141,13 +144,17 @@ export default function LoginScreen({ navigation }: any) {
               placeholder="Correo Electrónico"
               value={email}
               onChangeText={(text) => {
-                setEmail(text);
-                if (emailError) validateEmail(text);
+                setEmail(text.trim());
+                // Validate as they type, clear errors when valid
+                if (text.trim().includes('@') && text.trim().includes('.')) {
+                  setEmailError('');
+                }
               }}
               style={[styles.input, { color: theme.textPrimary }]}
               autoCapitalize="none"
               keyboardType="email-address"
-              onBlur={() => validateEmail(email)}
+              // Pass the current text value directly instead of using state
+              onBlur={(e) => validateEmail(e.nativeEvent.text)}
               placeholderTextColor={theme.textTertiary}
             />
           </View>
@@ -254,13 +261,17 @@ export default function LoginScreen({ navigation }: any) {
                 placeholder="Correo Electrónico"
                 value={email}
                 onChangeText={(text) => {
-                  setEmail(text);
-                  if (emailError) validateEmail(text);
+                  setEmail(text.trim());
+                  // Validate as they type, clear errors when valid
+                  if (text.trim().includes('@') && text.trim().includes('.')) {
+                    setEmailError('');
+                  }
                 }}
                 style={[styles.input, { color: theme.textPrimary }]}
                 autoCapitalize="none"
                 keyboardType="email-address"
-                onBlur={() => validateEmail(email)}
+                // Pass the current text value directly instead of using state
+                onBlur={(e) => validateEmail(e.nativeEvent.text)}
                 placeholderTextColor={theme.textTertiary}
               />
             </View>

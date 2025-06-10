@@ -1,178 +1,777 @@
-import React, { useEffect, useState } from 'react';
-import { Text, View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Button, Alert } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { Text, View, FlatList, StyleSheet, ActivityIndicator, StatusBar, Dimensions, TouchableOpacity, Modal, Alert, ScrollView } from 'react-native';
 import { supabase } from '../../api/supabaseConfig';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../../contexts/ThemeContext';
+
+// Interfaces para los datos
+interface Package {
+  id_paquete: number;
+  fecha_e: string;
+  direccion_entrega: string;
+  estado: string;
+  id_envio: number;
+  id_cliente: number;
+  peso: number;
+  dimensiones: string;
+}
+
+interface Driver {
+  id_conductor: number;
+  nombre: string;
+  apellido: string;
+}
 
 export default function HomeDispatcherScreen() {
-  const [envios, setEnvios] = useState<any[]>([]);
-  const [enviosSeleccionados, setEnviosSeleccionados] = useState<Set<string>>(new Set());
-  const [conductores, setConductores] = useState<any[]>([]);
-  const [conductorSeleccionado, setConductorSeleccionado] = useState<string | null>(null);
+  const { theme, isDark } = useTheme();
+  const [packages, setPackages] = useState<Package[]>([]);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(true);
-  const [fase, setFase] = useState<'envio' | 'conductor'>('envio');
+  const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  
+  // Modal state
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
+  const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
+  const [assignmentLoading, setAssignmentLoading] = useState(false);
 
+  // Filter state
+  const [activeFilter, setActiveFilter] = useState<string>('all');
+
+  // Fetch initial data
   useEffect(() => {
-    const fetchEnvios = async () => {
-      const { data, error } = await supabase
-        .from('envio')
-        .select('id_envio, paquetes_totales, id_ruta');
-
-      if (error) {
-        console.error('Error al obtener envíos:', error.message);
-      } else {
-        setEnvios(data ?? []);
-      }
-
-      setLoading(false);
-    };
-
-    fetchEnvios();
+    fetchPackages();
+    fetchDrivers();
   }, []);
 
-  const fetchConductores = async () => {
-    const { data, error } = await supabase
-      .from('conductor')
-      .select('id, nombre, correo, telefono, estado');
-
-    if (error) {
-      console.error('Error al obtener conductores:', error.message);
-    } else {
-      setConductores(data ?? []);
-      setFase('conductor');
+  const fetchPackages = async () => {
+    try {
+      setLoading(true);
+      
+      const { data, error } = await supabase
+        .from('paquete')
+        .select('*');
+      
+      if (error) {
+        throw error;
+      }
+      
+      setPackages(data || []);
+    } catch (error: any) {
+      setError(error.message);
+      console.error('Error fetching packages:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const toggleSeleccionEnvio = (id_envio: string) => {
-    const nuevaSeleccion = new Set(enviosSeleccionados);
-    if (nuevaSeleccion.has(id_envio)) {
-      nuevaSeleccion.delete(id_envio);
-    } else {
-      nuevaSeleccion.add(id_envio);
+  const fetchDrivers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('conductor')
+        .select('id_conductor, nombre');
+      
+      if (error) {
+        throw error;
+      }
+      
+      setDrivers(data || []);
+    } catch (error: any) {
+      console.error('Error fetching drivers:', error);
+      // Don't set the main error state here to avoid blocking the UI
     }
-    setEnviosSeleccionados(nuevaSeleccion);
   };
 
-  const renderEnvio = ({ item }: { item: any }) => {
-    const seleccionado = enviosSeleccionados.has(item.id_envio);
+  const assignPackageToDriver = async () => {
+    if (!selectedPackage || !selectedDriver) {
+      Alert.alert('Error', 'Seleccione un paquete y un conductor');
+      return;
+    }
+    
+    try {
+      setAssignmentLoading(true);
+      
+      // Get current user info (the dispatcher)
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('No se ha encontrado información del usuario');
+      }
+      
+      // First, get the dispatcher ID from the despachador table using the email
+      const { data: dispatcherData, error: dispatcherError } = await supabase
+        .from('despachador')
+        .select('id')
+        .eq('correo', user.email)
+        .single();
+      
+      if (dispatcherError || !dispatcherData) {
+        throw new Error('No se encontró el despachador asociado a este usuario');
+      }
+      
+      // Create assignment record with the correct dispatcher ID
+      const { error } = await supabase
+        .from('asignacion')
+        .insert({
+          id_despachador: dispatcherData.id, // Use the ID from the despachador table
+          id_conductor: selectedDriver.id_conductor,
+          id_envio: selectedPackage.id_envio
+        });
+      
+      if (error) {
+        throw error;
+      }
+      
+      // Update package status
+      const { error: updateError } = await supabase
+        .from('paquete')
+        .update({ estado: 'asignado' })
+        .eq('id_paquete', selectedPackage.id_paquete);
+      
+      if (updateError) {
+        throw updateError;
+      }
+      
+      Alert.alert(
+        'Éxito', 
+        `Paquete #${selectedPackage.id_paquete} asignado a ${selectedDriver.nombre} ${selectedDriver.apellido}`
+      );
+      
+      // Refresh packages list
+      fetchPackages();
+      
+      // Close modal
+      setModalVisible(false);
+      setSelectedPackage(null);
+      setSelectedDriver(null);
+      
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'No se pudo asignar el paquete');
+      console.error('Error assigning package:', error);
+    } finally {
+      setAssignmentLoading(false);
+    }
+  };
+
+  const openAssignmentModal = (pkg: Package) => {
+    setSelectedPackage(pkg);
+    setModalVisible(true);
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch(status.toLowerCase()) {
+      case 'entregado':
+        return { name: 'checkmark-circle', color: theme.success };
+      case 'en tránsito':
+        return { name: 'time', color: theme.warning };
+      case 'pendiente':
+        return { name: 'hourglass', color: theme.neutral };
+      case 'asignado':
+        return { name: 'person', color: theme.primary };
+      default:
+        return { name: 'help-circle', color: theme.textTertiary };
+    }
+  };
+
+  const filteredPackages = () => {
+    if (activeFilter === 'all') return packages;
+    return packages.filter(pkg => pkg.estado.toLowerCase() === activeFilter.toLowerCase());
+  };
+
+  const getStatusCount = (status: string) => {
+    return packages.filter(pkg => pkg.estado.toLowerCase() === status.toLowerCase()).length;
+  };
+
+  const renderItem = ({ item }: { item: Package }) => {
+    const statusIcon = getStatusIcon(item.estado);
+    
     return (
-      <TouchableOpacity
-        style={[styles.item, seleccionado && styles.itemSeleccionado]}
-        onPress={() => toggleSeleccionEnvio(item.id_envio)}
-      >
-        <Text>ID Envío: {item.id_envio}</Text>
-        <Text>Paquetes: {item.paquetes_totales}</Text>
-        <Text>Ruta: {item.id_ruta}</Text>
-      </TouchableOpacity>
+      <View style={[styles.packageItem, { backgroundColor: theme.cardBackground }]}>
+        <View style={styles.packageHeader}>
+          <View style={styles.idContainer}>
+            <Text style={[styles.packageId, { color: theme.textPrimary }]}>
+              Paquete #{item.id_paquete}
+            </Text>
+            <Text style={[styles.packageDate, { color: theme.textTertiary }]}>
+              Entrega: {item.fecha_e}
+            </Text>
+          </View>
+          <View style={[styles.statusContainer, { backgroundColor: theme.iconBackground }]}>
+            <Ionicons name={statusIcon.name} size={16} color={statusIcon.color} />
+            <Text style={[styles.statusText, { color: statusIcon.color }]}>
+              {item.estado}
+            </Text>
+          </View>
+        </View>
+        
+        <View style={[styles.divider, { backgroundColor: theme.divider }]} />
+        
+        <View style={styles.detailsContainer}>
+          <View style={styles.detailRow}>
+            <Ionicons name="location" size={18} color={theme.textSecondary} />
+            <Text style={[styles.detailText, { color: theme.textPrimary }]}>
+              {item.direccion_entrega}
+            </Text>
+          </View>
+          
+          <View style={styles.detailRow}>
+            <Ionicons name="cube" size={18} color={theme.textSecondary} />
+            <Text style={[styles.detailText, { color: theme.textPrimary }]}>
+              Peso: {item.peso} kg · Dimensiones: {item.dimensiones}
+            </Text>
+          </View>
+          
+          <View style={styles.detailRow}>
+            <Ionicons name="person" size={18} color={theme.textSecondary} />
+            <Text style={[styles.detailText, { color: theme.textPrimary }]}>
+              Cliente ID: {item.id_cliente} · Envío ID: {item.id_envio}
+            </Text>
+          </View>
+        </View>
+        
+        <View style={[styles.divider, { backgroundColor: theme.divider }]} />
+        
+        <TouchableOpacity 
+          style={[styles.assignButton, 
+            { opacity: item.estado.toLowerCase() === 'asignado' ? 0.5 : 1 }
+          ]}
+          onPress={() => openAssignmentModal(item)}
+          disabled={item.estado.toLowerCase() === 'asignado'}
+        >
+          <LinearGradient
+            colors={theme.primaryGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.assignButtonGradient}
+          >
+            <Ionicons name="person-add" size={18} color={theme.textInverse} />
+            <Text style={[styles.assignButtonText, { color: theme.textInverse }]}>
+              {item.estado.toLowerCase() === 'asignado' ? 'Ya asignado' : 'Asignar a conductor'}
+            </Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
     );
   };
 
-  const renderConductor = ({ item }: { item: any }) => {
-    const seleccionado = conductorSeleccionado === item.id;
-    return (
-      <TouchableOpacity
-        style={[styles.item, seleccionado && styles.itemSeleccionado]}
-        onPress={() => setConductorSeleccionado(item.id)}
+  const renderDriverItem = ({ item }: { item: Driver }) => (
+    <TouchableOpacity 
+      style={[
+        styles.driverItem, 
+        { 
+          backgroundColor: selectedDriver?.id_conductor === item.id_conductor 
+            ? theme.primary 
+            : theme.cardBackground,
+          borderColor: theme.border
+        }
+      ]}
+      onPress={() => setSelectedDriver(item)}
+    >
+      <Ionicons 
+        name="person-circle" 
+        size={24} 
+        color={selectedDriver?.id_conductor === item.id_conductor 
+          ? theme.textInverse
+          : theme.textPrimary
+        } 
+      />
+      <Text 
+        style={[
+          styles.driverName, 
+          { 
+            color: selectedDriver?.id_conductor === item.id_conductor 
+              ? theme.textInverse
+              : theme.textPrimary
+          }
+        ]}
       >
-        <Text>Nombre: {item.nombre}</Text>
-        <Text>Correo: {item.correo}</Text>
-        <Text>Teléfono: {item.telefono}</Text>
-        <Text>Estado: {item.estado}</Text>
-      </TouchableOpacity>
-    );
-  };
-
-  const asignarEnvios = async () => {
-    if (!conductorSeleccionado || enviosSeleccionados.size === 0) return;
-
-    const updates = [...enviosSeleccionados].map((id_envio) => ({
-      id_envio,
-      id_conductor: conductorSeleccionado,
-    }));
-
-    const { error } = await supabase
-      .from('envio')
-      .upsert(updates, { onConflict: 'id_envio' });
-
-    if (error) {
-      console.error('Error al asignar envíos:', error.message);
-      Alert.alert('Error', 'No se pudieron asignar los envíos.');
-    } else {
-      Alert.alert('Éxito', 'Los envíos fueron asignados correctamente.');
-      setEnviosSeleccionados(new Set());
-      setConductorSeleccionado(null);
-      setFase('envio');
-    }
-  };
+        {item.nombre} {item.apellido}
+      </Text>
+    </TouchableOpacity>
+  );
 
   if (loading) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#007bff" />
+      <View style={[styles.centered, { backgroundColor: theme.background }]}>
+        <StatusBar style={isDark ? "light" : "dark"} />
+        <ActivityIndicator size="large" color={theme.primary} />
+        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
+          Cargando paquetes...
+        </Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[styles.centered, { backgroundColor: theme.background }]}>
+        <StatusBar style={isDark ? "light" : "dark"} />
+        <Ionicons name="alert-circle" size={48} color={theme.error} />
+        <Text style={[styles.errorText, { color: theme.error }]}>
+          Error: {error}
+        </Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      {fase === 'envio' ? (
-        <>
-          <Text style={styles.titulo}>Selecciona los Envíos</Text>
-          <FlatList
-            data={envios}
-            keyExtractor={(item) => item.id_envio}
-            renderItem={renderEnvio}
-          />
-          <Button
-            title="Continuar"
-            onPress={fetchConductores}
-            disabled={enviosSeleccionados.size === 0}
-          />
-        </>
+      <LinearGradient
+        colors={theme.backgroundGradient}
+        style={styles.background}
+      />
+      <StatusBar style={isDark ? "light" : "dark"} />
+      
+      <View style={styles.headerContainer}>
+        <Text style={[styles.title, { color: theme.textPrimary }]}>Panel de Despacho</Text>
+        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
+          {packages.length} paquete{packages.length !== 1 ? 's' : ''} disponibles
+        </Text>
+      </View>
+      
+      {/* Filter Tabs */}
+      <View style={styles.filterContainer}>
+        <ScrollView 
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterScrollContent}
+        >
+          <TouchableOpacity
+            style={[
+              styles.filterTab,
+              activeFilter === 'all' && styles.activeFilterTab,
+              { borderColor: theme.primary }
+            ]}
+            onPress={() => setActiveFilter('all')}
+          >
+            <Text 
+              style={[
+                styles.filterText, 
+                activeFilter === 'all' && styles.activeFilterText,
+                { color: activeFilter === 'all' ? theme.primary : theme.textSecondary }
+              ]}
+            >
+              Todos ({packages.length})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.filterTab,
+              activeFilter === 'asignado' && styles.activeFilterTab,
+              { borderColor: theme.primary }
+            ]}
+            onPress={() => setActiveFilter('asignado')}
+          >
+            <Text 
+              style={[
+                styles.filterText, 
+                activeFilter === 'asignado' && styles.activeFilterText,
+                { color: activeFilter === 'asignado' ? theme.primary : theme.textSecondary }
+              ]}
+            >
+              Asignados ({getStatusCount('asignado')})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.filterTab,
+              activeFilter === 'en bodega' && styles.activeFilterTab,
+              { borderColor: theme.primary }
+            ]}
+            onPress={() => setActiveFilter('en bodega')}
+          >
+            <Text 
+              style={[
+                styles.filterText, 
+                activeFilter === 'en bodega' && styles.activeFilterText,
+                { color: activeFilter === 'en bodega' ? theme.primary : theme.textSecondary }
+              ]}
+            >
+              En Bodega ({getStatusCount('en bodega')})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.filterTab,
+              activeFilter === 'en camino' && styles.activeFilterTab,
+              { borderColor: theme.primary }
+            ]}
+            onPress={() => setActiveFilter('en camino')}
+          >
+            <Text 
+              style={[
+                styles.filterText, 
+                activeFilter === 'en camino' && styles.activeFilterText,
+                { color: activeFilter === 'en camino' ? theme.primary : theme.textSecondary }
+              ]}
+            >
+              En Camino ({getStatusCount('en camino')})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.filterTab,
+              activeFilter === 'entregado' && styles.activeFilterTab,
+              { borderColor: theme.primary }
+            ]}
+            onPress={() => setActiveFilter('entregado')}
+          >
+            <Text 
+              style={[
+                styles.filterText, 
+                activeFilter === 'entregado' && styles.activeFilterText,
+                { color: activeFilter === 'entregado' ? theme.primary : theme.textSecondary }
+              ]}
+            >
+              Entregados ({getStatusCount('entregado')})
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
+      
+      {filteredPackages().length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="cube-outline" size={64} color={theme.textTertiary} />
+          <Text style={[styles.noPackages, { color: theme.textTertiary }]}>
+            {activeFilter === 'all' 
+              ? 'No hay paquetes disponibles' 
+              : `No hay paquetes con estado "${activeFilter}"`}
+          </Text>
+        </View>
       ) : (
-        <>
-          <Text style={styles.titulo}>Selecciona un Conductor</Text>
-          <FlatList
-            data={conductores}
-            keyExtractor={(item) => item.id}
-            renderItem={renderConductor}
-          />
-          <Button
-            title="Asignar Envíos"
-            onPress={asignarEnvios}
-            disabled={!conductorSeleccionado}
-          />
-        </>
+        <FlatList
+          data={filteredPackages()}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.id_paquete.toString()}
+          contentContainerStyle={styles.listContainer}
+          showsVerticalScrollIndicator={false}
+          ListFooterComponent={<View style={{ height: 100 }} />}
+          onRefresh={fetchPackages}
+          refreshing={refreshing}
+        />
       )}
+      
+      {/* Assignment Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.cardBackground }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
+                Asignar Paquete
+              </Text>
+              <TouchableOpacity onPress={() => setModalVisible(false)}>
+                <Ionicons name="close" size={24} color={theme.textPrimary} />
+              </TouchableOpacity>
+            </View>
+            
+            {selectedPackage && (
+              <View style={styles.selectedPackageInfo}>
+                <Text style={[styles.selectedPackageTitle, { color: theme.textPrimary }]}>
+                  Paquete #{selectedPackage.id_paquete}
+                </Text>
+                <Text style={[styles.selectedPackageDetails, { color: theme.textSecondary }]}>
+                  {selectedPackage.direccion_entrega}
+                </Text>
+                <Text style={[styles.selectedPackageDetails, { color: theme.textSecondary }]}>
+                  Entrega: {selectedPackage.fecha_e}
+                </Text>
+              </View>
+            )}
+            
+            <View style={[styles.divider, { backgroundColor: theme.divider, marginVertical: 16 }]} />
+            
+            <Text style={[styles.driversTitle, { color: theme.textPrimary }]}>
+              Seleccione un conductor:
+            </Text>
+            
+            {drivers.length === 0 ? (
+              <View style={styles.noDriversContainer}>
+                <Ionicons name="person-outline" size={48} color={theme.textTertiary} />
+                <Text style={[styles.noDriversText, { color: theme.textTertiary }]}>
+                  No hay conductores disponibles
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={drivers}
+                renderItem={renderDriverItem}
+                keyExtractor={(item) => item.id_conductor.toString()}
+                contentContainerStyle={styles.driversListContainer}
+                showsVerticalScrollIndicator={false}
+                horizontal={false}
+              />
+            )}
+            
+            <TouchableOpacity 
+              style={[
+                styles.confirmButton, 
+                { 
+                  opacity: (!selectedDriver || assignmentLoading) ? 0.5 : 1,
+                  backgroundColor: theme.primary 
+                }
+              ]}
+              onPress={assignPackageToDriver}
+              disabled={!selectedDriver || assignmentLoading}
+            >
+              {assignmentLoading ? (
+                <ActivityIndicator size="small" color={theme.textInverse} />
+              ) : (
+                <Text style={[styles.confirmButtonText, { color: theme.textInverse }]}>
+                  Confirmar Asignación
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
+const { width } = Dimensions.get('window');
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 50,
-    paddingHorizontal: 10,
-    backgroundColor: '#f2f2f2',
   },
-  titulo: {
-    fontSize: 20,
-    marginBottom: 10,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  item: {
-    padding: 15,
-    backgroundColor: '#ffffff',
-    borderRadius: 10,
-    marginVertical: 5,
-    borderColor: '#ddd',
-    borderWidth: 1,
-  },
-  itemSeleccionado: {
-    backgroundColor: '#cce5ff',
+  background: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
   },
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
+  },
+  headerContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 20,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    marginBottom: 10,
+  },
+  listContainer: {
+    padding: 16,
+    paddingTop: 0,
+    paddingBottom: 80,
+  },
+  packageItem: {
+    borderRadius: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+    overflow: 'hidden',
+  },
+  packageHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+  },
+  idContainer: {
+    flex: 1,
+  },
+  packageId: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  packageDate: {
+    fontSize: 14,
+  },
+  statusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  divider: {
+    height: 1,
+    width: '100%',
+  },
+  detailsContainer: {
+    padding: 16,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  detailText: {
+    fontSize: 14,
+    marginLeft: 10,
+    flex: 1,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+  },
+  errorText: {
+    marginTop: 12,
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  noPackages: {
+    marginTop: 16,
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  assignButton: {
+    padding: 16,
+  },
+  assignButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    paddingVertical: 12,
+  },
+  assignButtonText: {
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    width: width * 0.9,
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  selectedPackageInfo: {
+    marginBottom: 12,
+  },
+  selectedPackageTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  selectedPackageDetails: {
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  driversTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  driversListContainer: {
+    maxHeight: 300,
+  },
+  driverItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+  },
+  driverName: {
+    fontSize: 16,
+    marginLeft: 12,
+  },
+  noDriversContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  noDriversText: {
+    marginTop: 12,
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  confirmButton: {
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 16,
+  },
+  confirmButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  filterContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 10,
+  },
+  filterTab: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginRight: 10,
+    borderColor: '#e0e0e0',
+  },
+  activeFilterTab: {
+    backgroundColor: 'rgba(57, 73, 171, 0.1)',
+    borderWidth: 1,
+  },
+  filterText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  activeFilterText: {
+    fontWeight: '700',
+  },
+  filterScrollContent: {
+    paddingRight: 20,
   },
 });

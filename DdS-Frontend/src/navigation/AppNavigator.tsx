@@ -5,8 +5,9 @@ import HomeAdminScreen from '../screens/admin/HomeAdminScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import HomeClientScreen from '../screens/client/HomeClientScreen';
-import HomeDispatcherScreen from '../screens/dispatcher/HomeDispatcherScreen';
 import DriverNavigator from './DriverNavigator'; // Importa el DriverNavigator
+import DispatcherNavigator from './DispatcherNavigator'; // Importa el DispatcherNavigator
+
 const Stack = createNativeStackNavigator();
 
 export default function AppNavigator() {
@@ -41,7 +42,7 @@ export default function AppNavigator() {
       />
       <Stack.Screen 
         name="HomeDispatcher" 
-        component={HomeDispatcherScreen} 
+        component={DispatcherNavigator} // Cambia a usar el DispatcherNavigator
       />
     </Stack.Navigator>
   );
