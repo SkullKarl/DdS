@@ -72,7 +72,7 @@ export default function DriverNavigator() {
         name="MyShipments"
         component={MyShipmentsScreen}
         options={{
-          tabBarLabel: 'Mis Envíos',
+          tabBarLabel: 'Mis Paquetes',
         }}
       />
       <Tab.Screen
