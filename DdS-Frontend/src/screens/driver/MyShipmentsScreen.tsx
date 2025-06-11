@@ -3,7 +3,8 @@ import { Text, View, FlatList, StyleSheet, ActivityIndicator, StatusBar, Dimensi
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../contexts/ThemeContext';
-import { ShipmentService, Package } from '../../services/ShipmentService';
+import { ShipmentService } from '../../services/ShipmentService';
+import { Package } from '../../domain/Package';
 import { DriverService } from '../../services/driver/ShipmentScreenService';
 import { RealtimeChannel } from '@supabase/supabase-js';
 

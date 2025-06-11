@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, Platform, Text } from 'react-native';
-import Map from '../../components/map/map.native';
+import Map from '../../components/map/map';
 
 export default function HomeDriverScreen() {
   return (

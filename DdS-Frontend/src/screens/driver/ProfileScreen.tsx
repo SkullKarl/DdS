@@ -18,7 +18,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, DarkColors } from '../../constants/Colors';
 import { useTheme } from '../../contexts/ThemeContext';
-import { ProfileService, DriverProfile } from '../../services/driver/ProfileService';
+import { ProfileService } from '../../services/driver/ProfileService';
+import { DriverProfile } from '../../domain/DriverProfile';
 
 export default function ProfileScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
