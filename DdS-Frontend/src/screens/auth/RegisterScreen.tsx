@@ -14,10 +14,14 @@ import {
   Dimensions,
   Platform
 } from 'react-native';
-import { supabase } from '../../api/supabaseConfig';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
+import { 
+  AuthService, 
+  DriverRegistrationData, 
+  DispatcherRegistrationData 
+} from '../../services/AuthService';
 
 export default function RegisterScreen({ navigation }: any) {
   const { theme, isDark } = useTheme();
@@ -26,7 +30,7 @@ export default function RegisterScreen({ navigation }: any) {
   const [role, setRole] = useState<'despachador' | 'conductor' | ''>('');
   const [nombre, setNombre] = useState('');
   const [telefono, setTelefono] = useState('');
-  // Solo para conductor
+  // Driver-only fields
   const [estado, setEstado] = useState('');
   const [licencia, setLicencia] = useState('');
   const [vehiculo, setVehiculo] = useState('');
@@ -35,8 +39,7 @@ export default function RegisterScreen({ navigation }: any) {
   const [emailError, setEmailError] = useState('');
 
   const validateEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    if (!AuthService.validateEmail(email)) {
       setEmailError('Por favor ingresa un correo electrónico válido');
       return false;
     }
@@ -70,49 +73,34 @@ export default function RegisterScreen({ navigation }: any) {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.auth.signUp({ email, password });
-      
-      if (error) {
-        Alert.alert('Error', error.message);
-        setLoading(false);
-        return;
-      }
-      
-      let insertError = null;
       if (role === 'despachador') {
-        const { error: dbError } = await supabase
-          .from('despachador')
-          .insert([{ 
-            nombre, 
-            correo: email, 
-            contraseña: password, 
-            telefono, 
-          }]);
-        insertError = dbError;
+        const dispatcherData: DispatcherRegistrationData = {
+          email,
+          password,
+          nombre,
+          telefono
+        };
+        
+        await AuthService.registerDispatcher(dispatcherData);
       } else if (role === 'conductor') {
-        const { error: dbError } = await supabase
-          .from('conductor')
-          .insert([{ 
-            nombre, 
-            correo: email, 
-            contraseña: password, 
-            telefono, 
-            estado, 
-            licencencia: licencia, 
-            vehiculo,
-          }]);
-        insertError = dbError;
-      }
-
-      if (insertError) {
-        Alert.alert('Error', insertError.message);
-        return;
+        const driverData: DriverRegistrationData = {
+          email,
+          password,
+          nombre,
+          telefono,
+          estado,
+          licencia,
+          vehiculo
+        };
+        
+        await AuthService.registerDriver(driverData);
       }
 
       Alert.alert('¡Registro exitoso!', 'Revisa tu correo para confirmar tu cuenta.');
-      navigation.goBack(); // Cambiar de navigation.navigate('Login')
+      navigation.goBack(); // Return to login screen
     } catch (error: any) {
-      Alert.alert('Error', "Ocurrió un problema con el servidor. Intenta nuevamente.");
+      Alert.alert('Error', error.message || "Ocurrió un problema con el servidor. Intenta nuevamente.");
+      console.error('Registration error:', error);
     } finally {
       setLoading(false);
     }
@@ -134,17 +122,6 @@ export default function RegisterScreen({ navigation }: any) {
         <ScrollView 
           contentContainerStyle={styles.scrollContainer}
           showsVerticalScrollIndicator={false}
-          horizontal={false}
-          showsHorizontalScrollIndicator={false}
-          scrollEnabled={true}
-          bounces={true}
-          alwaysBounceHorizontal={false}
-          alwaysBounceVertical={true}
-          directionalLockEnabled={true}
-          scrollEventThrottle={16}
-          decelerationRate="normal"
-          keyboardShouldPersistTaps="never" // Changed for web
-          overScrollMode="never"
         >
           <View style={[styles.card, isDark && styles.darkCard]}>
             <Text style={[styles.title, isDark && styles.darkTitle]}>Crear cuenta</Text>
@@ -277,7 +254,7 @@ export default function RegisterScreen({ navigation }: any) {
               </>
             )}
             
-            {/* Conductor fields */}
+            {/* Driver fields */}
             {role === 'conductor' && (
               <>
                 <Text style={[styles.sectionTitle, isDark && styles.darkSectionTitle]}>Información del conductor</Text>
@@ -352,17 +329,6 @@ export default function RegisterScreen({ navigation }: any) {
           <ScrollView 
             contentContainerStyle={styles.scrollContainer}
             showsVerticalScrollIndicator={false}
-            horizontal={false}
-            showsHorizontalScrollIndicator={false}
-            scrollEnabled={true}
-            bounces={true}
-            alwaysBounceHorizontal={false}
-            alwaysBounceVertical={true}
-            directionalLockEnabled={true}
-            scrollEventThrottle={16}
-            decelerationRate="normal"
-            keyboardShouldPersistTaps="handled"
-            overScrollMode="never"
           >
             <View style={[styles.card, isDark && styles.darkCard]}>
               <Text style={[styles.title, isDark && styles.darkTitle]}>Crear cuenta</Text>
@@ -495,7 +461,7 @@ export default function RegisterScreen({ navigation }: any) {
                 </>
               )}
               
-              {/* Conductor fields */}
+              {/* Driver fields */}
               {role === 'conductor' && (
                 <>
                   <Text style={[styles.sectionTitle, isDark && styles.darkSectionTitle]}>Información del conductor</Text>

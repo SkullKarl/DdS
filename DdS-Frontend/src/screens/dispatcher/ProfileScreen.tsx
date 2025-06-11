@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  ActivityIndicator,
   Alert,
   StatusBar,
   RefreshControl,
@@ -16,17 +15,18 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../../api/supabaseConfig';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors , DarkColors } from '../../constants/Colors';
+import { Colors, DarkColors } from '../../constants/Colors';
 import { useTheme } from '../../contexts/ThemeContext';
+import { DispatcherProfileService } from '../../services/dispatcher/DispatcherProfileService';
+import { DispatcherProfile } from '../../domain/DispatcherProfile';
 
 export default function ProfileDispatcherScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const { isDark, toggleTheme } = useTheme();
   
-  const [profileData, setProfileData] = useState({
+  const [profileData, setProfileData] = useState<DispatcherProfile>({
     nombre: '',
     correo: '',
     telefono: '',
@@ -47,82 +47,9 @@ export default function ProfileDispatcherScreen({ navigation }) {
   const fetchProfileData = async () => {
     try {
       setLoading(true);
-      
-      // Obtener el usuario actual
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
-      if (userError) {
-        throw userError;
-      }
-      
-      if (!user) {
-        throw new Error('No se encontró usuario autenticado');
-      }
-      
-      // Obtener los datos del despachador desde la base de datos
-      const { data, error } = await supabase
-        .from('despachador')
-        .select('*')
-        .eq('correo', user.email)
-        .single();
-        
-      if (error) {
-        throw error;
-      }
-      
-      if (data) {
-        try {
-          // Log the data to debug
-          console.log('Despachador data keys:', Object.keys(data));
-          
-          // Use id_despachador instead of id
-          const despachadorId = data.id_despachador;
-          
-          if (!despachadorId) {
-            console.error('ID de despachador no encontrado en:', data);
-            throw new Error('ID de despachador no encontrado');
-          }
-          
-          console.log('Using despachador ID:', despachadorId);
-          
-          // Use the correct field
-          const { data: asignaciones, error: countError } = await supabase
-            .from('asignacion')
-            .select('id_envio')
-            .eq('id_despachador', despachadorId);
-            
-          if (countError) {
-            console.error('Error al obtener asignaciones:', countError);
-          }
-          
-          // Calculate count manually from the returned array
-          const paquetesCount = asignaciones ? asignaciones.length : 0;
-          console.log('Conteo de paquetes calculado:', paquetesCount);
-          
-          setProfileData({
-            nombre: data.nombre || '',
-            correo: data.correo || '',
-            telefono: data.telefono || '',
-            direccion: data.direccion || '',
-            departamento: data.departamento || '',
-            foto_url: data.foto_url || null,
-            paquetes_asignados: paquetesCount,
-          });
-        } catch (countErr) {
-          console.error('Error al procesar conteo:', countErr);
-          // Set profile data anyway, just with 0 packages
-          setProfileData({
-            nombre: data.nombre || '',
-            correo: data.correo || '',
-            telefono: data.telefono || '',
-            direccion: data.direccion || '',
-            departamento: data.departamento || '',
-            foto_url: data.foto_url || null,
-            paquetes_asignados: 0,
-          });
-        }
-      }
-    } catch (error) {
+      const data = await DispatcherProfileService.getCurrentProfile();
+      setProfileData(data);
+    } catch (error: any) {
       console.error('Error al cargar datos del perfil:', error.message);
       Alert.alert('Error', 'No se pudieron cargar los datos del perfil');
     } finally {
@@ -138,15 +65,14 @@ export default function ProfileDispatcherScreen({ navigation }) {
 
   const handleLogout = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      await DispatcherProfileService.logout();
       
       // Navegar a la pantalla de login después de cerrar sesión exitosamente
       navigation.reset({
         index: 0,
         routes: [{ name: 'Login' }],
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error al cerrar sesión:', error.message);
       Alert.alert('Error', 'No se pudo cerrar la sesión');
     }

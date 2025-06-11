@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  ActivityIndicator,
   Alert,
   StatusBar,
   RefreshControl,
@@ -16,10 +15,10 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../../api/supabaseConfig';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors , DarkColors } from '../../constants/Colors';
-import { useTheme } from '../../contexts/ThemeContext'; // Importamos useTheme
+import { Colors, DarkColors } from '../../constants/Colors';
+import { useTheme } from '../../contexts/ThemeContext';
+import { ProfileService, DriverProfile } from '../../services/driver/ProfileService';
 
 export default function ProfileScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
@@ -27,7 +26,7 @@ export default function ProfileScreen({ navigation }) {
   // Reemplazamos el estado local con el del contexto
   const { isDark, toggleTheme } = useTheme();
   
-  const [profileData, setProfileData] = useState({
+  const [profileData, setProfileData] = useState<DriverProfile>({
     nombre: '',
     correo: '',
     telefono: '',
@@ -50,43 +49,9 @@ export default function ProfileScreen({ navigation }) {
   const fetchProfileData = async () => {
     try {
       setLoading(true);
-      
-      // Obtener el usuario actual
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
-      if (userError) {
-        throw userError;
-      }
-      
-      if (!user) {
-        throw new Error('No se encontró usuario autenticado');
-      }
-      
-      // Obtener los datos del conductor desde la base de datos
-      const { data, error } = await supabase
-        .from('conductor')
-        .select('*')
-        .eq('correo', user.email)
-        .single();
-        
-      if (error) {
-        throw error;
-      }
-      
-      if (data) {
-        setProfileData({
-          nombre: data.nombre || '',
-          correo: data.correo || '',
-          telefono: data.telefono || '',
-          estado: data.estado || '',
-          licencencia: data.licencencia || '',
-          vehiculo: data.vehiculo || '',
-          foto_url: data.foto_url || null,
-          entregas_completadas: data.entregas_completadas || 0,
-          valoracion: data.valoracion || 0,
-        });
-      }
-    } catch (error) {
+      const data = await ProfileService.getCurrentProfile();
+      setProfileData(data);
+    } catch (error: any) {
       console.error('Error al cargar datos del perfil:', error.message);
       Alert.alert('Error', 'No se pudieron cargar los datos del perfil');
     } finally {
@@ -102,15 +67,14 @@ export default function ProfileScreen({ navigation }) {
 
   const handleLogout = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      await ProfileService.logout();
       
       // Navegar a la pantalla de login después de cerrar sesión exitosamente
       navigation.reset({
         index: 0,
-        routes: [{ name: 'Login' }], // Ajusta el nombre según tu estructura de navegación
+        routes: [{ name: 'Login' }],
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error al cerrar sesión:', error.message);
       Alert.alert('Error', 'No se pudo cerrar la sesión');
     }

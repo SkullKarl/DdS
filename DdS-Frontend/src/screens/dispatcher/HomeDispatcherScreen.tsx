@@ -3,28 +3,12 @@ import {
   Text, View, FlatList, StyleSheet, ActivityIndicator, StatusBar, 
   Dimensions, TouchableOpacity, Modal, Alert, ScrollView, RefreshControl, Animated 
 } from 'react-native';
-import { supabase } from '../../api/supabaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../contexts/ThemeContext';
-
-// Interfaces para los datos
-interface Package {
-  id_paquete: number;
-  fecha_e: string;
-  direccion_entrega: string;
-  estado: string;
-  id_envio: number;
-  id_cliente: number;
-  peso: number;
-  dimensiones: string;
-}
-
-interface Driver {
-  id_conductor: number;
-  nombre: string;
-  apellido: string;
-}
+import { DispatcherService } from '../../services/dispatcher/DispatcherService';
+import { Package } from '../../domain/Package';
+import { Driver } from '../../domain/Driver';
 
 export default function HomeDispatcherScreen() {
   const { theme, isDark } = useTheme();
@@ -61,8 +45,11 @@ export default function HomeDispatcherScreen() {
     setOldPackages([...packages]);
     
     try {
+      // Reset fade animation first
+      fadeAnim.setValue(0.7);
       await fetchPackages();
-      // Animate only after we have new data
+      
+      // Animate new items in
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 500,
@@ -81,20 +68,8 @@ export default function HomeDispatcherScreen() {
     try {
       if (!refreshing) setLoading(true);
       
-      const { data, error } = await supabase
-        .from('paquete')
-        .select('*');
-      
-      if (error) {
-        throw error;
-      }
-      
-      if (refreshing) {
-        // If refreshing, animate the transition between old and new data
-        fadeAnim.setValue(0.7); // Slight fade effect but not complete disappearance
-      }
-      
-      setPackages(data || []);
+      const data = await DispatcherService.getPackages();
+      setPackages(data);
     } catch (error: any) {
       setError(error.message);
       console.error('Error fetching packages:', error);
@@ -105,15 +80,8 @@ export default function HomeDispatcherScreen() {
 
   const fetchDrivers = async () => {
     try {
-      const { data, error } = await supabase
-        .from('conductor')
-        .select('id_conductor, nombre');
-      
-      if (error) {
-        throw error;
-      }
-      
-      setDrivers(data || []);
+      const data = await DispatcherService.getDrivers();
+      setDrivers(data);
     } catch (error: any) {
       console.error('Error fetching drivers:', error);
       // Don't set the main error state here to avoid blocking the UI
@@ -129,50 +97,14 @@ export default function HomeDispatcherScreen() {
     try {
       setAssignmentLoading(true);
       
-      // Get current user info (the dispatcher)
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        throw new Error('No se ha encontrado información del usuario');
-      }
-      
-      // First, get the dispatcher ID from the despachador table using the email
-      const { data: dispatcherData, error: dispatcherError } = await supabase
-        .from('despachador')
-        .select('id')
-        .eq('correo', user.email)
-        .single();
-      
-      if (dispatcherError || !dispatcherData) {
-        throw new Error('No se encontró el despachador asociado a este usuario');
-      }
-      
-      // Create assignment record with the correct dispatcher ID
-      const { error } = await supabase
-        .from('asignacion')
-        .insert({
-          id_despachador: dispatcherData.id, // Use the ID from the despachador table
-          id_conductor: selectedDriver.id_conductor,
-          id_envio: selectedPackage.id_envio
-        });
-      
-      if (error) {
-        throw error;
-      }
-      
-      // Update package status
-      const { error: updateError } = await supabase
-        .from('paquete')
-        .update({ estado: 'asignado' })
-        .eq('id_paquete', selectedPackage.id_paquete);
-      
-      if (updateError) {
-        throw updateError;
-      }
+      await DispatcherService.assignPackageToDriver(
+        selectedPackage,
+        selectedDriver.id_conductor
+      );
       
       Alert.alert(
         'Éxito', 
-        `Paquete #${selectedPackage.id_paquete} asignado a ${selectedDriver.nombre} ${selectedDriver.apellido}`
+        `Paquete #${selectedPackage.id_paquete} asignado a ${selectedDriver.nombre}`
       );
       
       // Refresh packages list
@@ -356,7 +288,7 @@ export default function HomeDispatcherScreen() {
           }
         ]}
       >
-        {item.nombre} {item.apellido}
+        {item.nombre} 
       </Text>
     </TouchableOpacity>
   );

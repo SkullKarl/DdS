@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   Alert, 
   Image, 
@@ -14,10 +14,11 @@ import {
   Platform,
   Dimensions
 } from 'react-native';
-import { supabase } from '../../api/supabaseConfig';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../../contexts/ThemeContext'; // Import the theme hook
+import { useTheme } from '../../contexts/ThemeContext';
+import { AuthService } from '../../services/AuthService';
+import { UserRole } from '../../domain/Auth';
 
 export default function LoginScreen({ navigation }: any) {
   // Get the current theme from context
@@ -30,14 +31,16 @@ export default function LoginScreen({ navigation }: any) {
   const [emailError, setEmailError] = useState('');
 
   const validateEmail = (email: string) => {
-    // Ensure we're working with a string and trim it
-    const trimmedEmail = (email || '').trim();
+    // Make sure to work with a trimmed value
+    const trimmedEmail = email ? email.trim() : '';
     
-    // Simplest check for email validity
-    if (!trimmedEmail || !trimmedEmail.includes('@') || !trimmedEmail.includes('.')) {
+    // Only show error if there's actually an email entered
+    if (trimmedEmail && !AuthService.validateEmail(trimmedEmail)) {
       setEmailError('Por favor ingresa un correo electrónico válido');
       return false;
     }
+    
+    // Clear any error
     setEmailError('');
     return true;
   };
@@ -52,54 +55,32 @@ export default function LoginScreen({ navigation }: any) {
     setIsLoading(true);
     
     try {
-      const { error, data } = await supabase.auth.signInWithPassword({ email, password });
+      const userRoleData = await AuthService.login(email, password);
       
-      if (error) {
-        // Verificar si el error es porque el usuario no existe
-        if (error.message.includes('Invalid login credentials') || 
-            error.message.includes('Email not confirmed') ||
-            error.message.includes('No user found')) {
-          Alert.alert("Usuario no registrado", "El correo electrónico ingresado no está registrado en nuestro sistema. Por favor verifica tus datos o regístrate.");
-        } else {
-          Alert.alert("Error de inicio de sesión", error.message);
-        }
-        setIsLoading(false);
-        return;
-      }
-
-      // Buscar en la tabla DESPACHADOR
-      const { data: despachador, error: errorDesp } = await supabase
-        .from('despachador')
-        .select('*')
-        .eq('correo', email)
-        .single();
-
-      if (despachador) {
+      // Navigate based on the user's role
+      if (userRoleData.role === 'dispatcher') {
         navigation.reset({
           index: 0,
           routes: [{ name: 'HomeDispatcher' }],
         });
-        return;
-      }
-
-      // Buscar en la tabla CONDUCTOR
-      const { data: conductor, error: errorCond } = await supabase
-        .from('conductor')
-        .select('*')
-        .eq('correo', email)
-        .single();
-
-      if (conductor) {
+      } else if (userRoleData.role === 'driver') {
         navigation.reset({
           index: 0,
           routes: [{ name: 'HomeDriver' }],
         });
-        return;
+      } else {
+        Alert.alert("Error", "No se encontró el usuario en ninguna tabla de roles.");
       }
-
-      Alert.alert("Error", "No se encontró el usuario en ninguna tabla de roles.");
-    } catch (error) {
-      Alert.alert("Error", "Ocurrió un problema con el servidor. Intenta nuevamente.");
+    } catch (error: any) {
+      // Check if the error is because the user doesn't exist
+      if (error.message && (
+          error.message.includes('Invalid login credentials') || 
+          error.message.includes('Email not confirmed') ||
+          error.message.includes('No user found'))) {
+        Alert.alert("Usuario no registrado", "El correo electrónico ingresado no está registrado en nuestro sistema. Por favor verifica tus datos o regístrate.");
+      } else {
+        Alert.alert("Error de inicio de sesión", error.message || "Ocurrió un problema con el servidor");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -144,22 +125,25 @@ export default function LoginScreen({ navigation }: any) {
               placeholder="Correo Electrónico"
               value={email}
               onChangeText={(text) => {
-                setEmail(text.trim());
-                // Validate as they type, clear errors when valid
-                if (text.trim().includes('@') && text.trim().includes('.')) {
+                // Don't trim here, just set the value
+                setEmail(text);
+                
+                // If we currently have an error showing, check if the new value is valid
+                if (emailError && text.trim() && AuthService.validateEmail(text.trim())) {
                   setEmailError('');
                 }
               }}
               style={[styles.input, { color: theme.textPrimary }]}
               autoCapitalize="none"
               keyboardType="email-address"
-              // Pass the current text value directly instead of using state
-              onBlur={(e) => validateEmail(e.nativeEvent.text)}
+              // Only validate on blur, not on every change
+              onBlur={() => validateEmail(email)}
               placeholderTextColor={theme.textTertiary}
             />
           </View>
           {emailError ? <Text style={[styles.errorText, { color: theme.error }]}>{emailError}</Text> : null}
           
+          {/* Password input */}
           <View style={[styles.inputContainer, { 
             borderColor: theme.border, 
             backgroundColor: theme.inputBackground 
@@ -261,17 +245,19 @@ export default function LoginScreen({ navigation }: any) {
                 placeholder="Correo Electrónico"
                 value={email}
                 onChangeText={(text) => {
-                  setEmail(text.trim());
-                  // Validate as they type, clear errors when valid
-                  if (text.trim().includes('@') && text.trim().includes('.')) {
+                  // Don't trim here, just set the value
+                  setEmail(text);
+                  
+                  // If we currently have an error showing, check if the new value is valid
+                  if (emailError && text.trim() && AuthService.validateEmail(text.trim())) {
                     setEmailError('');
                   }
                 }}
                 style={[styles.input, { color: theme.textPrimary }]}
                 autoCapitalize="none"
                 keyboardType="email-address"
-                // Pass the current text value directly instead of using state
-                onBlur={(e) => validateEmail(e.nativeEvent.text)}
+                // Only validate on blur, not on every change
+                onBlur={() => validateEmail(email)}
                 placeholderTextColor={theme.textTertiary}
               />
             </View>

@@ -1,24 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Text, View, FlatList, StyleSheet, ActivityIndicator, StatusBar, Dimensions, TouchableOpacity, Animated, RefreshControl } from 'react-native';
-import { supabase } from '../../api/supabaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../contexts/ThemeContext';
-
-// Definir la interfaz para los datos del paquete
-interface Package {
-  id_paquete: number;
-  fecha_e: string;
-  direccion_entrega: string;
-  estado: string;
-  id_envio: number;
-  id_cliente: number;
-  peso: number;
-  dimensiones: string;
-  // Add dispatcher information
-  despachador_nombre?: string;
-  despachador_id?: number;
-}
+import { ShipmentService, Package } from '../../services/ShipmentService';
+import { DriverService } from '../../services/driver/ShipmentScreenService';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 export default function MyShipmentsScreen() {
   const { theme, isDark } = useTheme();
@@ -30,6 +17,7 @@ export default function MyShipmentsScreen() {
   const [driverId, setDriverId] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [oldPackages, setOldPackages] = useState<Package[]>([]);
+  const subscription = useRef<RealtimeChannel | null>(null);
   
   // Animation values
   const notificationOpacity = useRef(new Animated.Value(0)).current;
@@ -46,37 +34,24 @@ export default function MyShipmentsScreen() {
   useEffect(() => {
     if (driverId) {
       fetchPackages();
+      setupSubscription();
     }
   }, [driverId]);
+
+  // Clean up subscription on unmount
+  useEffect(() => {
+    return () => {
+      if (subscription.current) {
+        subscription.current.unsubscribe();
+      }
+    };
+  }, []);
 
   // Get the current driver ID from the logged-in user
   const getCurrentDriverId = async () => {
     try {
-      // Get current user
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
-      if (userError || !user) {
-        throw new Error('No se pudo obtener información del usuario actual');
-      }
-      
-      console.log('Current user email:', user.email); // Debug log
-      
-      // Find the driver record associated with this user's email
-      // Note the change from 'id' to 'id_conductor' here
-      const { data: driverData, error: driverError } = await supabase
-        .from('conductor')
-        .select('id_conductor') // Changed from 'id' to 'id_conductor'
-        .eq('correo', user.email)
-        .single();
-      
-      if (driverError || !driverData) {
-        throw new Error('No se encontró el conductor asociado a este usuario');
-      }
-      
-      // Set the driver ID for use in fetching packages
-      // Note the change from 'id' to 'id_conductor' here
-      setDriverId(driverData.id_conductor); // Changed from driverData.id
-    
+      const id = await DriverService.getCurrentDriverId();
+      setDriverId(id);
     } catch (error: any) {
       setError(error.message);
       console.error('Error getting current driver ID:', error);
@@ -84,30 +59,14 @@ export default function MyShipmentsScreen() {
   };
 
   // Set up subscription to listen for changes
-  useEffect(() => {
+  const setupSubscription = () => {
     if (!driverId) return;
     
-    const subscription = supabase
-      .channel('asignacion-changes')
-      .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'asignacion',
-          filter: `id_conductor=eq.${driverId}`
-        }, 
-        () => {
-          // New assignment detected for this driver
-          setHasNewPackages(true);
-        }
-      )
-      .subscribe();
-
-    // Clean up subscription on unmount
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [driverId]);
+    subscription.current = ShipmentService.subscribeToAssignmentChanges(
+      driverId,
+      () => setHasNewPackages(true)
+    );
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -141,55 +100,11 @@ export default function MyShipmentsScreen() {
       if (!refreshing) setLoading(true);
       setHasNewPackages(false);
       
-      // First, get all assignments for this driver
-      const { data: assignments, error: assignmentError } = await supabase
-        .from('asignacion')
-        .select(`
-          id_envio,
-          despachador:id_despachador(id_despachador, nombre)
-        `)
-        .eq('id_conductor', driverId);
-      
-      if (assignmentError) {
-        throw assignmentError;
-      }
-      
-      if (!assignments || assignments.length === 0) {
-        // No assignments for this driver
-        setPackages([]);
-        if (!refreshing) setLoading(false);
-        return;
-      }
-      
-      // Get the list of shipment IDs assigned to this driver
-      const envioIds = assignments.map(assignment => assignment.id_envio);
-      
-      // Now query the paquete table to get package details
-      const { data: packageData, error: packageError } = await supabase
-        .from('paquete')
-        .select('*')
-        .in('id_envio', envioIds);
-      
-      if (packageError) {
-        throw packageError;
-      }
-      
-      // Combine the data to include dispatcher information
-      const transformedData = packageData?.map(pkg => {
-        // Find the matching assignment to get dispatcher info
-        const matchingAssignment = assignments.find(a => a.id_envio === pkg.id_envio);
-        
-        return {
-          ...pkg,
-          despachador_nombre: matchingAssignment?.despachador?.nombre || 'Desconocido',
-          despachador_id: matchingAssignment?.despachador?.id_despachador
-        };
-      }) || [];
-      
-      setPackages(transformedData);
+      const packageData = await ShipmentService.getDriverPackages(driverId);
+      setPackages(packageData);
       
       // Store current package IDs for comparison later
-      currentPackageIds.current = transformedData.map(pkg => pkg.id_paquete);
+      currentPackageIds.current = packageData.map(pkg => pkg.id_paquete);
       
     } catch (error: any) {
       setError(error.message);
