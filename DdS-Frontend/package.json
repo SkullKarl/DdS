@@ -32,8 +32,5 @@
     "@types/react-native-maps": "^0.24.1",
     "typescript": "~5.8.3"
   },
-  "private": true,
-  "browser": {
-    "react-native-maps": false
-  }
+  "private": true
 }
