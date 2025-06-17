@@ -3,8 +3,7 @@ import { Text, View, FlatList, StyleSheet, ActivityIndicator, StatusBar, Dimensi
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../contexts/ThemeContext';
-import { ShipmentService } from '../../services/ShipmentService';
-import { Package } from '../../domain/Package';
+import { ShipmentService, Package } from '../../services/ShipmentService';
 import { DriverService } from '../../services/driver/ShipmentScreenService';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -19,7 +18,7 @@ export default function MyShipmentsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [oldPackages, setOldPackages] = useState<Package[]>([]);
   const subscription = useRef<RealtimeChannel | null>(null);
-  
+
   // Animation values
   const notificationOpacity = useRef(new Animated.Value(0)).current;
   const notificationTranslateY = useRef(new Animated.Value(-50)).current;
@@ -62,7 +61,7 @@ export default function MyShipmentsScreen() {
   // Set up subscription to listen for changes
   const setupSubscription = () => {
     if (!driverId) return;
-    
+
     subscription.current = ShipmentService.subscribeToAssignmentChanges(
       driverId,
       () => setHasNewPackages(true)
@@ -73,12 +72,12 @@ export default function MyShipmentsScreen() {
     setRefreshing(true);
     // Store current packages for comparison
     setOldPackages([...packages]);
-    
+
     try {
       // Reset fade animation first
       fadeAnim.setValue(0.7);
       await fetchPackages();
-      
+
       // Animate new items in
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -96,17 +95,17 @@ export default function MyShipmentsScreen() {
 
   const fetchPackages = async () => {
     if (!driverId) return;
-    
+
     try {
       if (!refreshing) setLoading(true);
       setHasNewPackages(false);
-      
+
       const packageData = await ShipmentService.getDriverPackages(driverId);
       setPackages(packageData);
-      
+
       // Store current package IDs for comparison later
       currentPackageIds.current = packageData.map(pkg => pkg.id_paquete);
-      
+
     } catch (error: any) {
       setError(error.message);
       console.error('Error fetching packages:', error);
@@ -115,8 +114,16 @@ export default function MyShipmentsScreen() {
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch(status.toLowerCase()) {
+  // Use Ionicons' built-in icon name type
+  type IoniconName =
+    | 'checkmark-circle'
+    | 'time'
+    | 'hourglass'
+    | 'person'
+    | 'help-circle';
+
+  const getStatusIcon = (status: string): { name: IoniconName; color: string } => {
+    switch (status.toLowerCase()) {
       case 'entregado':
         return { name: 'checkmark-circle', color: theme.success };
       case 'en tránsito':
@@ -135,7 +142,7 @@ export default function MyShipmentsScreen() {
     <RefreshControl
       refreshing={refreshing}
       onRefresh={onRefresh}
-      colors={[theme.primary, theme.secondary]}
+      colors={[theme.primary, theme.primary]}
       tintColor={theme.primary}
       title="Actualizando..."
       titleColor={theme.textSecondary}
@@ -145,25 +152,25 @@ export default function MyShipmentsScreen() {
 
   const renderItem = ({ item }: { item: Package }) => {
     const statusIcon = getStatusIcon(item.estado);
-    
+
     // Check if this is a new item after refresh
     const isNewItem = refreshing && !oldPackages.some(pkg => pkg.id_paquete === item.id_paquete);
-    
+
     // Apply animation style only to new items
     const itemAnimationStyle = isNewItem ? {
       opacity: fadeAnim,
-      transform: [{ 
+      transform: [{
         translateY: fadeAnim.interpolate({
           inputRange: [0, 1],
           outputRange: [20, 0]
         })
       }]
     } : {};
-    
+
     return (
-      <Animated.View 
+      <Animated.View
         style={[
-          styles.packageItem, 
+          styles.packageItem,
           { backgroundColor: theme.cardBackground },
           itemAnimationStyle
         ]}
@@ -184,9 +191,9 @@ export default function MyShipmentsScreen() {
             </Text>
           </View>
         </View>
-        
+
         <View style={[styles.divider, { backgroundColor: theme.divider }]} />
-        
+
         <View style={styles.detailsContainer}>
           <View style={styles.detailRow}>
             <Ionicons name="location" size={18} color={theme.textSecondary} />
@@ -194,21 +201,21 @@ export default function MyShipmentsScreen() {
               {item.direccion_entrega}
             </Text>
           </View>
-          
+
           <View style={styles.detailRow}>
             <Ionicons name="cube" size={18} color={theme.textSecondary} />
             <Text style={[styles.detailText, { color: theme.textPrimary }]}>
               Peso: {item.peso} kg · Dimensiones: {item.dimensiones}
             </Text>
           </View>
-          
+
           <View style={styles.detailRow}>
             <Ionicons name="briefcase" size={18} color={theme.textSecondary} />
             <Text style={[styles.detailText, { color: theme.textPrimary }]}>
               Asignado por: {item.despachador_nombre}
             </Text>
           </View>
-          
+
           <View style={styles.detailRow}>
             <Ionicons name="information-circle" size={18} color={theme.textSecondary} />
             <Text style={[styles.detailText, { color: theme.textPrimary }]}>
@@ -237,7 +244,7 @@ export default function MyShipmentsScreen() {
           useNativeDriver: true
         })
       ]).start();
-      
+
       // Start rotating refresh icon
       Animated.loop(
         Animated.timing(refreshIconRotation, {
@@ -260,7 +267,7 @@ export default function MyShipmentsScreen() {
           useNativeDriver: true
         })
       ]).start();
-      
+
       // Stop rotation animation
       refreshIconRotation.setValue(0);
     }
@@ -280,15 +287,15 @@ export default function MyShipmentsScreen() {
   const NewPackagesNotification = () => {
     // Don't render anything if we have no new packages
     if (!hasNewPackages) return null;
-    
+
     // Create rotation interpolation for the refresh icon
     const spin = refreshIconRotation.interpolate({
       inputRange: [0, 1],
       outputRange: ['0deg', '360deg']
     });
-    
+
     return (
-      <Animated.View 
+      <Animated.View
         style={[
           styles.newPackagesButtonContainer,
           {
@@ -298,12 +305,12 @@ export default function MyShipmentsScreen() {
         ]}
       >
         <LinearGradient
-          colors={theme.primaryGradient}
+          colors={theme.primaryGradient as [string, string, ...string[]]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.newPackagesButton}
         >
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.newPackagesButtonContent}
             onPress={handleRefresh}
             activeOpacity={0.8}
@@ -324,7 +331,7 @@ export default function MyShipmentsScreen() {
   if (loading && !refreshing) {
     return (
       <View style={[styles.centered, { backgroundColor: theme.background }]}>
-        <StatusBar style={isDark ? "light" : "dark"} />
+        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
         <ActivityIndicator size="large" color={theme.primary} />
         <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
           Cargando tus paquetes asignados...
@@ -336,7 +343,7 @@ export default function MyShipmentsScreen() {
   if (error) {
     return (
       <View style={[styles.centered, { backgroundColor: theme.background }]}>
-        <StatusBar style={isDark ? "light" : "dark"} />
+        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
         <Ionicons name="alert-circle" size={48} color={theme.error} />
         <Text style={[styles.errorText, { color: theme.error }]}>
           Error: {error}
@@ -348,20 +355,20 @@ export default function MyShipmentsScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={theme.backgroundGradient}
+        colors={theme.backgroundGradient as [string, string, ...string[]]}
         style={styles.background}
       />
-      <StatusBar style={isDark ? "light" : "dark"} />
-      
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+
       <View style={styles.headerContainer}>
-        <Text style={[styles.title, { color: theme.textPrimary }]}>Mis Envíos</Text>
+        <Text style={[styles.title, { color: theme.textPrimary }]}>Mis Paquetes</Text>
         <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
           {packages.length} paquete{packages.length !== 1 ? 's' : ''} asignados
         </Text>
       </View>
-      
+
       <NewPackagesNotification />
-      
+
       {packages.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="cube-outline" size={64} color={theme.textTertiary} />

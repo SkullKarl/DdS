@@ -26,7 +26,7 @@ export default function ProfileScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   // Reemplazamos el estado local con el del contexto
   const { isDark, toggleTheme } = useTheme();
-  
+
   const [profileData, setProfileData] = useState<DriverProfile>({
     nombre: '',
     correo: '',
@@ -42,7 +42,7 @@ export default function ProfileScreen({ navigation }) {
   // Referencias para animaciones
   const loadingAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  
+
   useEffect(() => {
     fetchProfileData();
   }, []);
@@ -69,7 +69,7 @@ export default function ProfileScreen({ navigation }) {
   const handleLogout = async () => {
     try {
       await ProfileService.logout();
-      
+
       // Navegar a la pantalla de login después de cerrar sesión exitosamente
       navigation.reset({
         index: 0,
@@ -91,7 +91,7 @@ export default function ProfileScreen({ navigation }) {
         useNativeDriver: false,
         easing: Easing.bezier(0.4, 0.0, 0.2, 1),
       }).start();
-      
+
       // Animación pulsante para el icono
       Animated.loop(
         Animated.sequence([
@@ -111,55 +111,59 @@ export default function ProfileScreen({ navigation }) {
       ).start();
     }
   }, [loading]);
-  
+
   // El resto del componente ahora usa isDark en vez de isDarkMode
   if (loading) {
     const progressWidth = loadingAnim.interpolate({
       inputRange: [0, 1],
       outputRange: ['0%', '80%'],
     });
-    
+
     return (
       <SafeAreaView style={[styles.container, isDark && styles.darkContainer]}>
         <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
         <LinearGradient
-          colors={isDark ? Colors.darkBackgroundGradient || ['#1a1a2e', '#16213e'] : Colors.backgroundGradient}
+          colors={
+            isDark
+              ? (DarkColors.backgroundGradient as [string, string, ...string[]]) || ['#1a1a2e', '#16213e']
+              : (Colors.backgroundGradient as [string, string, ...string[]])
+          }
           style={styles.background}
         />
         <View style={styles.loadingContainer}>
           <View style={[styles.loadingCard, isDark && styles.darkLoadingCard]}>
-            <Animated.View 
+            <Animated.View
               style={[
                 styles.loadingIconContainer,
                 {
                   transform: [{ scale: pulseAnim }],
-                  backgroundColor: isDark 
-                    ? 'rgba(91, 103, 202, 0.15)' 
+                  backgroundColor: isDark
+                    ? 'rgba(91, 103, 202, 0.15)'
                     : 'rgba(57, 73, 171, 0.1)'
                 }
               ]}
             >
-              <Ionicons 
-                name="person" 
-                size={40} 
-                color={isDark ? DarkColors.primary : Colors.primary} 
+              <Ionicons
+                name="person"
+                size={40}
+                color={isDark ? DarkColors.primary : Colors.primary}
               />
             </Animated.View>
-            
+
             <Text style={[styles.loadingTitle, isDark && styles.darkText]}>
               Cargando tu perfil
             </Text>
             <Text style={[styles.loadingSubtext, isDark && styles.darkSecondaryText]}>
               Estamos preparando tus datos...
             </Text>
-            
+
             <View style={styles.loadingProgressBar}>
-              <Animated.View 
+              <Animated.View
                 style={[
-                  styles.loadingProgress, 
+                  styles.loadingProgress,
                   isDark && styles.darkLoadingProgress,
                   { width: progressWidth }
-                ]} 
+                ]}
               />
             </View>
           </View>
@@ -172,11 +176,15 @@ export default function ProfileScreen({ navigation }) {
     <SafeAreaView style={[styles.container, isDark && styles.darkContainer]}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
       <LinearGradient
-        colors={isDark ? Colors.darkBackgroundGradient || ['#1a1a2e', '#16213e'] : Colors.backgroundGradient}
+        colors={
+          isDark
+            ? (DarkColors.backgroundGradient as [string, string, ...string[]]) || ['#1a1a2e', '#16213e']
+            : (Colors.backgroundGradient as [string, string, ...string[]])
+        }
         style={styles.background}
       />
-      
-      <ScrollView 
+
+      <ScrollView
         contentContainerStyle={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -199,14 +207,14 @@ export default function ProfileScreen({ navigation }) {
             style={styles.themeToggle}
           />
         </View>
-        
+
         {/* Header con foto de perfil */}
         <View style={[styles.header, isDark && styles.darkHeader]}>
           <View style={styles.profileImageContainer}>
             {profileData.foto_url ? (
-              <Image 
-                source={{ uri: profileData.foto_url }} 
-                style={styles.profileImage} 
+              <Image
+                source={{ uri: profileData.foto_url }}
+                style={styles.profileImage}
               />
             ) : (
               <View style={styles.profileImagePlaceholder}>
@@ -217,10 +225,10 @@ export default function ProfileScreen({ navigation }) {
               <Ionicons name="camera" size={18} color={Colors.textInverse} />
             </TouchableOpacity>
           </View>
-          
+
           <Text style={[styles.profileName, isDark && styles.darkProfileName]}>{profileData.nombre}</Text>
           <Text style={styles.profileRole}>Conductor</Text>
-          
+
           {/* Sección de estadísticas (entregas y valoración) */}
           <View style={[styles.statsContainer, isDark && styles.darkInfoCard]}>
             <View style={styles.statItem}>
@@ -237,11 +245,11 @@ export default function ProfileScreen({ navigation }) {
             </View>
           </View>
         </View>
-        
+
         {/* Sección de información personal */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, isDark && styles.darkText]}>Información Personal</Text>
-          
+
           <View style={[styles.infoCard, isDark && styles.darkInfoCard]}>
             <View style={styles.infoItem}>
               <View style={styles.infoIconContainer}>
@@ -252,9 +260,9 @@ export default function ProfileScreen({ navigation }) {
                 <Text style={[styles.infoValue, isDark && styles.darkText]}>{profileData.correo}</Text>
               </View>
             </View>
-            
+
             <View style={styles.divider} />
-            
+
             <View style={styles.infoItem}>
               <View style={styles.infoIconContainer}>
                 <Ionicons name="call-outline" size={20} color={Colors.primary} />
@@ -264,9 +272,9 @@ export default function ProfileScreen({ navigation }) {
                 <Text style={[styles.infoValue, isDark && styles.darkText]}>{profileData.telefono}</Text>
               </View>
             </View>
-            
+
             <View style={styles.divider} />
-            
+
             <View style={styles.infoItem}>
               <View style={styles.infoIconContainer}>
                 <Ionicons name="location-outline" size={20} color={Colors.primary} />
@@ -278,11 +286,11 @@ export default function ProfileScreen({ navigation }) {
             </View>
           </View>
         </View>
-        
+
         {/* Sección de información del conductor */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, isDark && styles.darkText]}>Información del Conductor</Text>
-          
+
           <View style={[styles.infoCard, isDark && styles.darkInfoCard]}>
             <View style={styles.infoItem}>
               <View style={styles.infoIconContainer}>
@@ -293,9 +301,9 @@ export default function ProfileScreen({ navigation }) {
                 <Text style={[styles.infoValue, isDark && styles.darkText]}>{profileData.licencencia}</Text>
               </View>
             </View>
-            
+
             <View style={styles.divider} />
-            
+
             <View style={styles.infoItem}>
               <View style={styles.infoIconContainer}>
                 <Ionicons name="car-sport-outline" size={20} color={Colors.primary} />
@@ -307,13 +315,13 @@ export default function ProfileScreen({ navigation }) {
             </View>
           </View>
         </View>
-        
+
         {/* Botón de editar perfil */}
         <TouchableOpacity style={styles.editButton}>
           <Ionicons name="create-outline" size={20} color={Colors.textInverse} style={styles.buttonIcon} />
           <Text style={styles.buttonText}>Editar Perfil</Text>
         </TouchableOpacity>
-        
+
         {/* Botón de cerrar sesión */}
         <TouchableOpacity style={[styles.logoutButton, isDark && styles.darkLogoutButton]} onPress={handleLogout}>
           <Ionicons name="log-out-outline" size={20} color={Colors.danger} style={styles.buttonIcon} />

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Text, View, FlatList, StyleSheet, ActivityIndicator, StatusBar, 
-  Dimensions, TouchableOpacity, Modal, Alert, ScrollView, RefreshControl, Animated 
+import {
+  Text, View, FlatList, StyleSheet, ActivityIndicator, StatusBar,
+  Dimensions, TouchableOpacity, Modal, Alert, ScrollView, RefreshControl, Animated
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,10 +17,10 @@ export default function HomeDispatcherScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  
+
   // Animation value for smooth appearance of new items
   const fadeAnim = useRef(new Animated.Value(1)).current;
-  
+
   // Modal state
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
@@ -33,6 +33,7 @@ export default function HomeDispatcherScreen() {
   // Old packages state for comparison during refresh
   const [oldPackages, setOldPackages] = useState<Package[]>([]);
 
+
   // Fetch initial data
   useEffect(() => {
     fetchPackages();
@@ -43,12 +44,12 @@ export default function HomeDispatcherScreen() {
     setRefreshing(true);
     // Store current packages instead of clearing the view
     setOldPackages([...packages]);
-    
+
     try {
       // Reset fade animation first
       fadeAnim.setValue(0.7);
       await fetchPackages();
-      
+
       // Animate new items in
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -67,7 +68,7 @@ export default function HomeDispatcherScreen() {
   const fetchPackages = async () => {
     try {
       if (!refreshing) setLoading(true);
-      
+
       const data = await DispatcherService.getPackages();
       setPackages(data);
     } catch (error: any) {
@@ -93,28 +94,36 @@ export default function HomeDispatcherScreen() {
       Alert.alert('Error', 'Seleccione un paquete y un conductor');
       return;
     }
-    
+
     try {
       setAssignmentLoading(true);
-      
-      await DispatcherService.assignPackageToDriver(
-        selectedPackage,
-        selectedDriver.id_conductor
+
+      const envio = await DispatcherService.getOrCreateEnvioForDriver(
+        String(selectedDriver.id_conductor),
+        selectedPackage
       );
-      
+
+
+      // 2. Asignar el paquete al conductor y al envío
+      await DispatcherService.assignPackageToDriver(
+        { ...selectedPackage, id_envio: envio.id_envio },
+        String(selectedDriver.id_conductor)
+      );
+
       Alert.alert(
-        'Éxito', 
+        'Éxito',
         `Paquete #${selectedPackage.id_paquete} asignado a ${selectedDriver.nombre}`
       );
-      
+
       // Refresh packages list
       fetchPackages();
-      
+
       // Close modal
+      fetchPackages();
       setModalVisible(false);
       setSelectedPackage(null);
       setSelectedDriver(null);
-      
+
     } catch (error: any) {
       Alert.alert('Error', error.message || 'No se pudo asignar el paquete');
       console.error('Error assigning package:', error);
@@ -129,7 +138,7 @@ export default function HomeDispatcherScreen() {
   };
 
   const getStatusIcon = (status: string) => {
-    switch(status.toLowerCase()) {
+    switch (status.toLowerCase()) {
       case 'entregado':
         return { name: 'checkmark-circle', color: theme.success };
       case 'en tránsito':
@@ -157,7 +166,7 @@ export default function HomeDispatcherScreen() {
     <RefreshControl
       refreshing={refreshing}
       onRefresh={onRefresh}
-      colors={[theme.primary, theme.secondary]}
+      colors={[theme.primary, theme.primary]}
       tintColor={theme.primary}
       title="Actualizando..."
       titleColor={theme.textSecondary}
@@ -167,24 +176,24 @@ export default function HomeDispatcherScreen() {
 
   const renderItem = ({ item, index }: { item: Package, index: number }) => {
     const statusIcon = getStatusIcon(item.estado);
-    
+
     // Staggered animation only for new items
     const isNewItem = refreshing && !oldPackages.some(pkg => pkg.id_paquete === item.id_paquete);
     const itemAnimationStyle = isNewItem ? {
       opacity: fadeAnim,
-      transform: [{ 
+      transform: [{
         translateY: fadeAnim.interpolate({
           inputRange: [0, 1],
           outputRange: [20, 0]
         })
       }]
     } : {};
-    
+
     return (
-      <Animated.View 
+      <Animated.View
         style={[
-          styles.packageItem, 
-          { 
+          styles.packageItem,
+          {
             backgroundColor: theme.cardBackground,
           },
           itemAnimationStyle
@@ -200,15 +209,15 @@ export default function HomeDispatcherScreen() {
             </Text>
           </View>
           <View style={[styles.statusContainer, { backgroundColor: theme.iconBackground }]}>
-            <Ionicons name={statusIcon.name} size={16} color={statusIcon.color} />
+            <Ionicons name={statusIcon.name as any} size={16} color={statusIcon.color} />
             <Text style={[styles.statusText, { color: statusIcon.color }]}>
               {item.estado}
             </Text>
           </View>
         </View>
-        
+
         <View style={[styles.divider, { backgroundColor: theme.divider }]} />
-        
+
         <View style={styles.detailsContainer}>
           <View style={styles.detailRow}>
             <Ionicons name="location" size={18} color={theme.textSecondary} />
@@ -216,14 +225,14 @@ export default function HomeDispatcherScreen() {
               {item.direccion_entrega}
             </Text>
           </View>
-          
+
           <View style={styles.detailRow}>
             <Ionicons name="cube" size={18} color={theme.textSecondary} />
             <Text style={[styles.detailText, { color: theme.textPrimary }]}>
               Peso: {item.peso} kg · Dimensiones: {item.dimensiones}
             </Text>
           </View>
-          
+
           <View style={styles.detailRow}>
             <Ionicons name="person" size={18} color={theme.textSecondary} />
             <Text style={[styles.detailText, { color: theme.textPrimary }]}>
@@ -231,18 +240,18 @@ export default function HomeDispatcherScreen() {
             </Text>
           </View>
         </View>
-        
+
         <View style={[styles.divider, { backgroundColor: theme.divider }]} />
-        
-        <TouchableOpacity 
-          style={[styles.assignButton, 
-            { opacity: item.estado.toLowerCase() === 'asignado' ? 0.5 : 1 }
+
+        <TouchableOpacity
+          style={[styles.assignButton,
+          { opacity: item.estado.toLowerCase() === 'asignado' ? 0.5 : 1 }
           ]}
           onPress={() => openAssignmentModal(item)}
           disabled={item.estado.toLowerCase() === 'asignado'}
         >
           <LinearGradient
-            colors={theme.primaryGradient}
+            colors={theme.primaryGradient as [string, string, ...string[]]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.assignButtonGradient}
@@ -258,37 +267,37 @@ export default function HomeDispatcherScreen() {
   };
 
   const renderDriverItem = ({ item }: { item: Driver }) => (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={[
-        styles.driverItem, 
-        { 
-          backgroundColor: selectedDriver?.id_conductor === item.id_conductor 
-            ? theme.primary 
+        styles.driverItem,
+        {
+          backgroundColor: selectedDriver?.id_conductor === item.id_conductor
+            ? theme.primary
             : theme.cardBackground,
           borderColor: theme.border
         }
       ]}
       onPress={() => setSelectedDriver(item)}
     >
-      <Ionicons 
-        name="person-circle" 
-        size={24} 
-        color={selectedDriver?.id_conductor === item.id_conductor 
+      <Ionicons
+        name="person-circle"
+        size={24}
+        color={selectedDriver?.id_conductor === item.id_conductor
           ? theme.textInverse
           : theme.textPrimary
-        } 
+        }
       />
-      <Text 
+      <Text
         style={[
-          styles.driverName, 
-          { 
-            color: selectedDriver?.id_conductor === item.id_conductor 
+          styles.driverName,
+          {
+            color: selectedDriver?.id_conductor === item.id_conductor
               ? theme.textInverse
               : theme.textPrimary
           }
         ]}
       >
-        {item.nombre} 
+        {item.nombre}
       </Text>
     </TouchableOpacity>
   );
@@ -297,7 +306,7 @@ export default function HomeDispatcherScreen() {
   if (loading && !refreshing) {
     return (
       <View style={[styles.centered, { backgroundColor: theme.background }]}>
-        <StatusBar style={isDark ? "light" : "dark"} />
+        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
         <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
@@ -306,7 +315,7 @@ export default function HomeDispatcherScreen() {
   if (error) {
     return (
       <View style={[styles.centered, { backgroundColor: theme.background }]}>
-        <StatusBar style={isDark ? "light" : "dark"} />
+        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
         <Ionicons name="alert-circle" size={48} color={theme.error} />
         <Text style={[styles.errorText, { color: theme.error }]}>
           Error: {error}
@@ -318,21 +327,21 @@ export default function HomeDispatcherScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={theme.backgroundGradient}
+        colors={theme.backgroundGradient as [string, string, ...string[]]}
         style={styles.background}
       />
-      <StatusBar style={isDark ? "light" : "dark"} />
-      
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+
       <View style={styles.headerContainer}>
         <Text style={[styles.title, { color: theme.textPrimary }]}>Panel de Despacho</Text>
         <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
           {packages.length} paquete{packages.length !== 1 ? 's' : ''} disponibles
         </Text>
       </View>
-      
+
       {/* Filter Tabs */}
       <View style={styles.filterContainer}>
-        <ScrollView 
+        <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filterScrollContent}
@@ -345,9 +354,9 @@ export default function HomeDispatcherScreen() {
             ]}
             onPress={() => setActiveFilter('all')}
           >
-            <Text 
+            <Text
               style={[
-                styles.filterText, 
+                styles.filterText,
                 activeFilter === 'all' && styles.activeFilterText,
                 { color: activeFilter === 'all' ? theme.primary : theme.textSecondary }
               ]}
@@ -364,9 +373,9 @@ export default function HomeDispatcherScreen() {
             ]}
             onPress={() => setActiveFilter('asignado')}
           >
-            <Text 
+            <Text
               style={[
-                styles.filterText, 
+                styles.filterText,
                 activeFilter === 'asignado' && styles.activeFilterText,
                 { color: activeFilter === 'asignado' ? theme.primary : theme.textSecondary }
               ]}
@@ -383,9 +392,9 @@ export default function HomeDispatcherScreen() {
             ]}
             onPress={() => setActiveFilter('en bodega')}
           >
-            <Text 
+            <Text
               style={[
-                styles.filterText, 
+                styles.filterText,
                 activeFilter === 'en bodega' && styles.activeFilterText,
                 { color: activeFilter === 'en bodega' ? theme.primary : theme.textSecondary }
               ]}
@@ -402,9 +411,9 @@ export default function HomeDispatcherScreen() {
             ]}
             onPress={() => setActiveFilter('en camino')}
           >
-            <Text 
+            <Text
               style={[
-                styles.filterText, 
+                styles.filterText,
                 activeFilter === 'en camino' && styles.activeFilterText,
                 { color: activeFilter === 'en camino' ? theme.primary : theme.textSecondary }
               ]}
@@ -421,9 +430,9 @@ export default function HomeDispatcherScreen() {
             ]}
             onPress={() => setActiveFilter('entregado')}
           >
-            <Text 
+            <Text
               style={[
-                styles.filterText, 
+                styles.filterText,
                 activeFilter === 'entregado' && styles.activeFilterText,
                 { color: activeFilter === 'entregado' ? theme.primary : theme.textSecondary }
               ]}
@@ -433,13 +442,13 @@ export default function HomeDispatcherScreen() {
           </TouchableOpacity>
         </ScrollView>
       </View>
-      
+
       {filteredPackages().length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="cube-outline" size={64} color={theme.textTertiary} />
           <Text style={[styles.noPackages, { color: theme.textTertiary }]}>
-            {activeFilter === 'all' 
-              ? 'No hay paquetes disponibles' 
+            {activeFilter === 'all'
+              ? 'No hay paquetes disponibles'
               : `No hay paquetes con estado "${activeFilter}"`}
           </Text>
         </View>
@@ -455,7 +464,7 @@ export default function HomeDispatcherScreen() {
           onEndReachedThreshold={0.5}
         />
       )}
-      
+
       {/* Assignment Modal */}
       <Modal
         animationType="slide"
@@ -473,7 +482,7 @@ export default function HomeDispatcherScreen() {
                 <Ionicons name="close" size={24} color={theme.textPrimary} />
               </TouchableOpacity>
             </View>
-            
+
             {selectedPackage && (
               <View style={styles.selectedPackageInfo}>
                 <Text style={[styles.selectedPackageTitle, { color: theme.textPrimary }]}>
@@ -487,13 +496,13 @@ export default function HomeDispatcherScreen() {
                 </Text>
               </View>
             )}
-            
+
             <View style={[styles.divider, { backgroundColor: theme.divider, marginVertical: 16 }]} />
-            
+
             <Text style={[styles.driversTitle, { color: theme.textPrimary }]}>
               Seleccione un conductor:
             </Text>
-            
+
             {drivers.length === 0 ? (
               <View style={styles.noDriversContainer}>
                 <Ionicons name="person-outline" size={48} color={theme.textTertiary} />
@@ -511,13 +520,13 @@ export default function HomeDispatcherScreen() {
                 horizontal={false}
               />
             )}
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={[
-                styles.confirmButton, 
-                { 
+                styles.confirmButton,
+                {
                   opacity: (!selectedDriver || assignmentLoading) ? 0.5 : 1,
-                  backgroundColor: theme.primary 
+                  backgroundColor: theme.primary
                 }
               ]}
               onPress={assignPackageToDriver}

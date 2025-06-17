@@ -10,9 +10,12 @@ export async function getDirections(
 ) {
   const originStr = `${origin.latitude},${origin.longitude}`;
   const destinationStr = `${destination.latitude},${destination.longitude}`;
-  const waypointsStr = waypoints.length > 0
-    ? `&waypoints=optimize:true|${waypoints.map(p => `${p.latitude},${p.longitude}`).join('|')}`
-    : '';
+  const waypointsStr =
+    waypoints.length > 0
+      ? `&waypoints=optimize:true|${waypoints
+          .map((p) => `${p.latitude},${p.longitude}`)
+          .join("|")}`
+      : "";
 
   const url = `${BASE_URL}?origin=${originStr}&destination=${destinationStr}${waypointsStr}&mode=${mode}&key=${GOOGLE_MAPS_APIKEY}`;
 
