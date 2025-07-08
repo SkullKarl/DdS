@@ -96,4 +96,26 @@ export class ShipmentService {
 
     return subscription;
   }
+
+  /**
+   * Updates the status of a package
+   * @param packageId The ID of the package
+   * @param newStatus The new status to set
+   * @returns Promise that resolves when the update is complete
+   */
+  static async updatePackageStatus(packageId: number, newStatus: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from("paquete")
+        .update({ estado: newStatus })
+        .eq("id_paquete", packageId);
+
+      if (error) {
+        throw error;
+      }
+    } catch (error) {
+      console.error("Error updating package status:", error);
+      throw error;
+    }
+  }
 }

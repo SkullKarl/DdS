@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Text, View, FlatList, StyleSheet, ActivityIndicator, StatusBar, Dimensions, TouchableOpacity, Animated, RefreshControl } from 'react-native';
+import { Text, View, FlatList, StyleSheet, ActivityIndicator, StatusBar, Dimensions, TouchableOpacity, Animated, RefreshControl, Modal, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -18,6 +18,9 @@ export default function MyShipmentsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [oldPackages, setOldPackages] = useState<Package[]>([]);
   const subscription = useRef<RealtimeChannel | null>(null);
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
   // Animation values
   const notificationOpacity = useRef(new Animated.Value(0)).current;
@@ -168,62 +171,67 @@ export default function MyShipmentsScreen() {
     } : {};
 
     return (
-      <Animated.View
-        style={[
-          styles.packageItem,
-          { backgroundColor: theme.cardBackground },
-          itemAnimationStyle
-        ]}
+      <TouchableOpacity
+        onPress={() => handlePackagePress(item)}
+        activeOpacity={0.7}
       >
-        <View style={styles.packageHeader}>
-          <View style={styles.idContainer}>
-            <Text style={[styles.packageId, { color: theme.textPrimary }]}>
-              Paquete #{item.id_paquete}
-            </Text>
-            <Text style={[styles.packageDate, { color: theme.textTertiary }]}>
-              Entrega: {item.fecha_e}
-            </Text>
-          </View>
-          <View style={[styles.statusContainer, { backgroundColor: theme.iconBackground }]}>
-            <Ionicons name={statusIcon.name} size={16} color={statusIcon.color} />
-            <Text style={[styles.statusText, { color: statusIcon.color }]}>
-              {item.estado}
-            </Text>
-          </View>
-        </View>
-
-        <View style={[styles.divider, { backgroundColor: theme.divider }]} />
-
-        <View style={styles.detailsContainer}>
-          <View style={styles.detailRow}>
-            <Ionicons name="location" size={18} color={theme.textSecondary} />
-            <Text style={[styles.detailText, { color: theme.textPrimary }]}>
-              {item.direccion_entrega}
-            </Text>
+        <Animated.View
+          style={[
+            styles.packageItem,
+            { backgroundColor: theme.cardBackground },
+            itemAnimationStyle
+          ]}
+        >
+          <View style={styles.packageHeader}>
+            <View style={styles.idContainer}>
+              <Text style={[styles.packageId, { color: theme.textPrimary }]}>
+                Paquete #{item.id_paquete}
+              </Text>
+              <Text style={[styles.packageDate, { color: theme.textTertiary }]}>
+                Entrega: {item.fecha_e}
+              </Text>
+            </View>
+            <View style={[styles.statusContainer, { backgroundColor: theme.iconBackground }]}>
+              <Ionicons name={statusIcon.name} size={16} color={statusIcon.color} />
+              <Text style={[styles.statusText, { color: statusIcon.color }]}>
+                {item.estado}
+              </Text>
+            </View>
           </View>
 
-          <View style={styles.detailRow}>
-            <Ionicons name="cube" size={18} color={theme.textSecondary} />
-            <Text style={[styles.detailText, { color: theme.textPrimary }]}>
-              Peso: {item.peso} kg · Dimensiones: {item.dimensiones}
-            </Text>
-          </View>
+          <View style={[styles.divider, { backgroundColor: theme.divider }]} />
 
-          <View style={styles.detailRow}>
-            <Ionicons name="briefcase" size={18} color={theme.textSecondary} />
-            <Text style={[styles.detailText, { color: theme.textPrimary }]}>
-              Asignado por: {item.despachador_nombre}
-            </Text>
-          </View>
+          <View style={styles.detailsContainer}>
+            <View style={styles.detailRow}>
+              <Ionicons name="location" size={18} color={theme.textSecondary} />
+              <Text style={[styles.detailText, { color: theme.textPrimary }]}>
+                {item.direccion_entrega}
+              </Text>
+            </View>
 
-          <View style={styles.detailRow}>
-            <Ionicons name="information-circle" size={18} color={theme.textSecondary} />
-            <Text style={[styles.detailText, { color: theme.textPrimary }]}>
-              Cliente ID: {item.id_cliente} · Envío ID: {item.id_envio}
-            </Text>
+            <View style={styles.detailRow}>
+              <Ionicons name="cube" size={18} color={theme.textSecondary} />
+              <Text style={[styles.detailText, { color: theme.textPrimary }]}>
+                Peso: {item.peso} kg · Dimensiones: {item.dimensiones}
+              </Text>
+            </View>
+
+            <View style={styles.detailRow}>
+              <Ionicons name="briefcase" size={18} color={theme.textSecondary} />
+              <Text style={[styles.detailText, { color: theme.textPrimary }]}>
+                Asignado por: {item.despachador_nombre}
+              </Text>
+            </View>
+
+            <View style={styles.detailRow}>
+              <Ionicons name="information-circle" size={18} color={theme.textSecondary} />
+              <Text style={[styles.detailText, { color: theme.textPrimary }]}>
+                Cliente ID: {item.id_cliente} · Envío ID: {item.id_envio}
+              </Text>
+            </View>
           </View>
-        </View>
-      </Animated.View>
+        </Animated.View>
+      </TouchableOpacity>
     );
   };
 
@@ -283,6 +291,50 @@ export default function MyShipmentsScreen() {
       fetchPackages();
     });
   };
+
+  const handlePackagePress = (packageItem: Package) => {
+    setSelectedPackage(packageItem);
+    setShowStatusModal(true);
+  };
+
+  const handleStatusUpdate = async (newStatus: string) => {
+    if (!selectedPackage) return;
+
+    setUpdatingStatus(true);
+    try {
+      await ShipmentService.updatePackageStatus(selectedPackage.id_paquete, newStatus);
+      
+      // Update local state immediately for better UX
+      setPackages(prevPackages => 
+        prevPackages.map(pkg => 
+          pkg.id_paquete === selectedPackage.id_paquete 
+            ? { ...pkg, estado: newStatus }
+            : pkg
+        )
+      );
+
+      setShowStatusModal(false);
+      setSelectedPackage(null);
+      
+      Alert.alert(
+        'Estado actualizado',
+        `El paquete #${selectedPackage.id_paquete} ha sido marcado como "${newStatus}"`
+      );
+    } catch (error: any) {
+      Alert.alert(
+        'Error',
+        `No se pudo actualizar el estado: ${error.message}`
+      );
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  const statusOptions = [
+    { value: 'asignado', label: 'Asignado', icon: 'person' as const, color: 'primary' as const },
+    { value: 'en tránsito', label: 'En Tránsito', icon: 'time' as const, color: 'warning' as const },
+    { value: 'entregado', label: 'Entregado', icon: 'checkmark-circle' as const, color: 'success' as const }
+  ];
 
   const NewPackagesNotification = () => {
     // Don't render anything if we have no new packages
@@ -388,6 +440,52 @@ export default function MyShipmentsScreen() {
           refreshing={false} // We're handling the refresh state manually
         />
       )}
+
+      <Modal
+        visible={showStatusModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowStatusModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={[styles.modalContent, { backgroundColor: theme.cardBackground }]}>
+            <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
+              Cambiar estado del paquete
+            </Text>
+            <Text style={[styles.modalSubtitle, { color: theme.textSecondary }]}>
+              Paquete #{selectedPackage?.id_paquete}
+            </Text>
+
+            <View style={styles.optionsContainer}>
+              {statusOptions.map(option => (
+                <TouchableOpacity
+                  key={option.value}
+                  style={[
+                    styles.optionButton,
+                    { backgroundColor: theme.iconBackground }
+                  ]}
+                  onPress={() => handleStatusUpdate(option.value)}
+                  disabled={updatingStatus}
+                >
+                  <Ionicons name={option.icon} size={16} color={theme[option.color]} />
+                  <Text style={[styles.optionLabel, { color: theme[option.color] }]}>
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TouchableOpacity
+              style={[styles.closeButton, { backgroundColor: theme.primary }]}
+              onPress={() => setShowStatusModal(false)}
+            >
+              <Text style={[styles.closeButtonText, { color: theme.textInverse }]}>
+                Cerrar
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -532,5 +630,57 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
     textAlign: 'center',
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    margin: 0,
+    padding: 20,
+  },
+  modalContent: {
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    marginBottom: 16,
+  },
+  optionsContainer: {
+    marginBottom: 16,
+  },
+  optionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  optionLabel: {
+    marginLeft: 8,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  closeButton: {
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
