@@ -1,4 +1,4 @@
-const GOOGLE_MAPS_APIKEY = "api_key";
+const GOOGLE_MAPS_APIKEY = "AIzaSyAl55pXyc10sWQ49ttxwRaRpaoQoP1Wbqs";
 
 const BASE_URL = "https://maps.googleapis.com/maps/api/directions/json";
 
