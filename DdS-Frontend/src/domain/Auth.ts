@@ -16,6 +16,6 @@ export interface DispatcherRegistrationData extends RegistrationData {
 }
 
 export interface UserRole {
-  role: 'dispatcher' | 'driver' | null;
+  role: 'dispatcher' | 'driver' | 'client' | null;
   userData: any;
 }

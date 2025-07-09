@@ -68,6 +68,11 @@ export default function LoginScreen({ navigation }: any) {
           index: 0,
           routes: [{ name: 'HomeDriver' }],
         });
+      } else if (userRoleData.role === 'client') {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'HomeClient' }],
+        });
       } else {
         Alert.alert("Error", "No se encontró el usuario en ninguna tabla de roles.");
       }

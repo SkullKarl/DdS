@@ -4,7 +4,7 @@ import React from 'react';
 import HomeAdminScreen from '../screens/admin/HomeAdminScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
-import HomeClientScreen from '../screens/client/HomeClientScreen';
+import ClientNavigator from './ClientNavigator'; // Import ClientNavigator
 import DriverNavigator from './DriverNavigator'; // Importa el DriverNavigator
 import DispatcherNavigator from './DispatcherNavigator'; // Importa el DispatcherNavigator
 
@@ -34,7 +34,7 @@ export default function AppNavigator() {
       />
       <Stack.Screen 
         name="HomeClient" 
-        component={HomeClientScreen} 
+        component={ClientNavigator} // Change to use ClientNavigator
       />
       <Stack.Screen 
         name="HomeDriver" 

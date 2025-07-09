@@ -68,6 +68,20 @@ export class AuthService {
         };
       }
 
+      // Check if the user is a client
+      const { data: client, error: clientError } = await supabase
+        .from("cliente")
+        .select("*")
+        .eq("correo", email)
+        .single();
+
+      if (client) {
+        return {
+          role: "client",
+          userData: client,
+        };
+      }
+
       // No role found
       throw new Error("No se encontró el usuario en ninguna tabla de roles.");
     } catch (error) {
@@ -162,6 +176,22 @@ export class AuthService {
     const { error } = await supabase.auth.signOut();
     if (error) {
       throw error;
+    }
+  }
+
+  /**
+   * Gets the current logged-in user's email
+   * @returns Promise<string | null>
+   */
+  static async getCurrentUserEmail(): Promise<string | null> {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      return user?.email || null;
+    } catch (error) {
+      console.error("Error getting current user:", error);
+      return null;
     }
   }
 }
