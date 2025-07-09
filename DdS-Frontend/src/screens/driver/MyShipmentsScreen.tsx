@@ -55,6 +55,9 @@ export default function MyShipmentsScreen() {
     try {
       const id = await DriverService.getCurrentDriverId();
       setDriverId(id);
+
+      // Initialize the current envio in transit for this driver
+      await ShipmentService.initializeCurrentEnvioInTransit(id);
     } catch (error: any) {
       setError(error.message);
       console.error('Error getting current driver ID:', error);
@@ -303,19 +306,29 @@ export default function MyShipmentsScreen() {
     setUpdatingStatus(true);
     try {
       await ShipmentService.updatePackageStatus(selectedPackage.id_paquete, newStatus);
-      
+
       // Update local state immediately for better UX
-      setPackages(prevPackages => 
-        prevPackages.map(pkg => 
-          pkg.id_paquete === selectedPackage.id_paquete 
-            ? { ...pkg, estado: newStatus }
-            : pkg
-        )
-      );
+      setPackages(prevPackages => {
+        if (newStatus.toLowerCase() === "en tránsito") {
+          // If setting to "en tránsito", update all packages with the same envio ID
+          return prevPackages.map(pkg =>
+            pkg.id_envio === selectedPackage.id_envio
+              ? { ...pkg, estado: newStatus }
+              : pkg
+          );
+        } else {
+          // For other statuses, only update the selected package
+          return prevPackages.map(pkg =>
+            pkg.id_paquete === selectedPackage.id_paquete
+              ? { ...pkg, estado: newStatus }
+              : pkg
+          );
+        }
+      });
 
       setShowStatusModal(false);
       setSelectedPackage(null);
-      
+
       Alert.alert(
         'Estado actualizado',
         `El paquete #${selectedPackage.id_paquete} ha sido marcado como "${newStatus}"`
