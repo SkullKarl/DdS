@@ -3,7 +3,6 @@
 import { supabase } from "../api/supabaseConfig";
 import { RealtimeChannel } from "@supabase/supabase-js";
 import { Package } from "../domain/Package";
-import { EnvioStateService } from "./EnvioStateService";
 export * from "../domain/Package";
 
 export class ShipmentService {
@@ -99,159 +98,24 @@ export class ShipmentService {
   }
 
   /**
-   * Updates the status of a package and all packages in the same envio if setting to "en tránsito"
+   * Updates the status of a package
    * @param packageId The ID of the package
    * @param newStatus The new status to set
    * @returns Promise that resolves when the update is complete
    */
-  static async updatePackageStatus(
-    packageId: number,
-    newStatus: string
-  ): Promise<void> {
+  static async updatePackageStatus(packageId: number, newStatus: string): Promise<void> {
     try {
-      // First, get the package to find its envio ID
-      const { data: packageData, error: packageError } = await supabase
+      const { error } = await supabase
         .from("paquete")
-        .select("id_envio")
-        .eq("id_paquete", packageId)
-        .single();
-
-      if (packageError) {
-        throw packageError;
-      }
-
-      const envioId = packageData.id_envio;
-
-      // If setting to "en tránsito", update all packages in the same envio
-      if (newStatus.toLowerCase() === "en tránsito") {
-        const { error: bulkUpdateError } = await supabase
-          .from("paquete")
-          .update({ estado: newStatus })
-          .eq("id_envio", envioId);
-
-        if (bulkUpdateError) {
-          throw bulkUpdateError;
-        }
-
-        // Set this envio as the current one in transit
-        EnvioStateService.setCurrentEnvioId(envioId.toString());
-      } else {
-        // For other statuses, only update the specific package
-        const { error } = await supabase
-          .from("paquete")
-          .update({ estado: newStatus })
-          .eq("id_paquete", packageId);
-
-        if (error) {
-          throw error;
-        }
-
-        // If this was the last package in transit for this envio, check if we should clear the current envio
-        if (newStatus.toLowerCase() === "entregado") {
-          await this.checkAndClearEnvioIfCompleted(envioId);
-        }
-      }
-    } catch (error) {
-      console.error("Error updating package status:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Checks if all packages in an envio are delivered and clears the current envio if so
-   * @param envioId The ID of the envio to check
-   */
-  private static async checkAndClearEnvioIfCompleted(
-    envioId: number
-  ): Promise<void> {
-    try {
-      const { data: packagesInTransit, error } = await supabase
-        .from("paquete")
-        .select("id_paquete")
-        .eq("id_envio", envioId)
-        .eq("estado", "en tránsito");
+        .update({ estado: newStatus })
+        .eq("id_paquete", packageId);
 
       if (error) {
         throw error;
       }
-
-      // If no packages are in transit for this envio, clear it from the state
-      if (!packagesInTransit || packagesInTransit.length === 0) {
-        const currentEnvioId = EnvioStateService.getCurrentEnvioId();
-        if (currentEnvioId === envioId.toString()) {
-          EnvioStateService.clearCurrentEnvioId();
-        }
-      }
     } catch (error) {
-      console.error("Error checking envio completion:", error);
-    }
-  }
-
-  /**
-   * Gets the current envio in transit
-   * @returns The current envio ID in transit or null
-   */
-  static getCurrentEnvioInTransit(): string | null {
-    return EnvioStateService.getCurrentEnvioId();
-  }
-
-  /**
-   * Subscribes to changes in the current envio in transit
-   * @param callback Function to call when the current envio changes
-   * @returns Unsubscribe function
-   */
-  static subscribeToCurrentEnvioChanges(
-    callback: (envioId: string | null) => void
-  ): () => void {
-    return EnvioStateService.subscribe(callback);
-  }
-
-  /**
-   * Initializes the current envio in transit by checking for packages with "en tránsito" status
-   * Should be called when the app starts or when a driver logs in
-   * @param driverId The ID of the driver
-   */
-  static async initializeCurrentEnvioInTransit(
-    driverId: number
-  ): Promise<void> {
-    try {
-      // Get all assignments for this driver
-      const { data: assignments, error: assignmentError } = await supabase
-        .from("asignacion")
-        .select("id_envio")
-        .eq("id_conductor", driverId);
-
-      if (assignmentError) {
-        throw assignmentError;
-      }
-
-      if (!assignments || assignments.length === 0) {
-        return;
-      }
-
-      // Get the list of shipment IDs assigned to this driver
-      const envioIds = assignments.map((assignment) => assignment.id_envio);
-
-      // Find any package that is currently "en tránsito"
-      const { data: packagesInTransit, error: packageError } = await supabase
-        .from("paquete")
-        .select("id_envio")
-        .in("id_envio", envioIds)
-        .eq("estado", "en tránsito")
-        .limit(1);
-
-      if (packageError) {
-        throw packageError;
-      }
-
-      // If there's a package in transit, set its envio as the current one
-      if (packagesInTransit && packagesInTransit.length > 0) {
-        EnvioStateService.setCurrentEnvioId(
-          packagesInTransit[0].id_envio.toString()
-        );
-      }
-    } catch (error) {
-      console.error("Error initializing current envio in transit:", error);
+      console.error("Error updating package status:", error);
+      throw error;
     }
   }
 }
