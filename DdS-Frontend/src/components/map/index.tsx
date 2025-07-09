@@ -1,14 +1,10 @@
 import { Platform } from 'react-native';
 
-// Platform-specific exports
-let Map;
-
-if (Platform.OS === 'web') {
-    // For web, directly export the web component without requiring native
-    Map = require('./map.web').default;
-} else {
-    // For native platforms, load the native component
-    Map = require('./map.native').default;
-}
+// Platform-specific imports
+const Map = Platform.select({
+    native: () => require('./map.native').default,
+    web: () => require('./map.web').default,
+    default: () => require('./map.web').default,
+})();
 
 export default Map;
