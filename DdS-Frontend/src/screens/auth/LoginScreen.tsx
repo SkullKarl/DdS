@@ -198,15 +198,13 @@ export default function LoginScreen({ navigation }: any) {
                 INICIAR SESIÓN
               </Text>
             )}
-          </TouchableOpacity>
-          
-          <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-            <Text style={[styles.register, { color: theme.neutral }]}>
-              ¿No tienes cuenta? <Text style={[styles.registerBold, { color: theme.primary }]}>
-                Regístrate
+          </TouchableOpacity>            <TouchableOpacity onPress={() => navigation.navigate('UserTypeSelection')}>
+              <Text style={[styles.register, { color: theme.neutral }]}>
+                ¿No tienes cuenta? <Text style={[styles.registerBold, { color: theme.primary }]}>
+                  Regístrate
+                </Text>
               </Text>
-            </Text>
-          </TouchableOpacity>
+            </TouchableOpacity>
         </View>
 
         <View style={styles.footer}>
@@ -319,7 +317,7 @@ export default function LoginScreen({ navigation }: any) {
               )}
             </TouchableOpacity>
             
-            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+            <TouchableOpacity onPress={() => navigation.navigate('UserTypeSelection')}>
               <Text style={[styles.register, { color: theme.neutral }]}>
                 ¿No tienes cuenta? <Text style={[styles.registerBold, { color: theme.primary }]}>
                   Regístrate

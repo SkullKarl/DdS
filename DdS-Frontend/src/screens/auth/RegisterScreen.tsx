@@ -22,20 +22,24 @@ import { useTheme } from '../../contexts/ThemeContext';
 import {
   AuthService,
   DriverRegistrationData,
-  DispatcherRegistrationData
+  DispatcherRegistrationData,
+  ClientRegistrationData
 } from '../../services/AuthService';
 
 export default function RegisterScreen({ navigation }: any) {
   const { theme, isDark } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'despachador' | 'conductor' | ''>('');
+  const [role, setRole] = useState<'despachador' | 'conductor' | 'cliente' | ''>('');
   const [nombre, setNombre] = useState('');
   const [telefono, setTelefono] = useState('');
   // Driver-only fields
   const [estado, setEstado] = useState('');
   const [licencia, setLicencia] = useState('');
   const [vehiculo, setVehiculo] = useState('');
+  // Client-only fields
+  const [direccion, setDireccion] = useState('');
+  const [preferenciaNotificacion, setPreferenciaNotificacion] = useState('email');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [emailError, setEmailError] = useState('');
@@ -72,6 +76,11 @@ export default function RegisterScreen({ navigation }: any) {
       return;
     }
 
+    if (role === 'cliente' && !direccion) {
+      Alert.alert("Error", "Por favor ingresa tu dirección");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -96,6 +105,17 @@ export default function RegisterScreen({ navigation }: any) {
         };
 
         await AuthService.registerDriver(driverData);
+      } else if (role === 'cliente') {
+        const clientData: ClientRegistrationData = {
+          email,
+          password,
+          nombre,
+          telefono,
+          direccion,
+          preferencia_notificacion: preferenciaNotificacion
+        };
+
+        await AuthService.registerClient(clientData);
       }
 
       Alert.alert('¡Registro exitoso!', 'Revisa tu correo para confirmar tu cuenta.');
@@ -225,10 +245,36 @@ export default function RegisterScreen({ navigation }: any) {
                   Conductor
                 </Text>
               </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.roleButton,
+                  isDark && styles.darkRoleButton,
+                  role === 'cliente' && styles.roleButtonSelected,
+                  role === 'cliente' && isDark && styles.darkRoleButtonSelected
+                ]}
+                onPress={() => setRole('cliente')}
+              >
+                <Ionicons
+                  name="person-outline"
+                  size={20}
+                  color={role === 'cliente'
+                    ? '#fff'
+                    : (isDark ? theme.primary : '#3949ab')}
+                  style={styles.roleIcon}
+                />
+                <Text style={[
+                  styles.roleText,
+                  isDark && styles.darkRoleText,
+                  role === 'cliente' && styles.roleTextSelected
+                ]}>
+                  Cliente
+                </Text>
+              </TouchableOpacity>
             </View>
 
             {/* Common fields */}
-            {(role === 'despachador' || role === 'conductor') && (
+            {(role === 'despachador' || role === 'conductor' || role === 'cliente') && (
               <>
                 <Text style={[styles.sectionTitle, isDark && styles.darkSectionTitle]}>Información personal</Text>
                 <View style={[styles.inputContainer, isDark && styles.darkInputContainer]}>
@@ -291,6 +337,77 @@ export default function RegisterScreen({ navigation }: any) {
                     onChangeText={setVehiculo}
                     style={[styles.input, isDark && styles.darkInput]}
                   />
+                </View>
+              </>
+            )}
+
+            {/* Client fields */}
+            {role === 'cliente' && (
+              <>
+                <Text style={[styles.sectionTitle, isDark && styles.darkSectionTitle]}>Información del cliente</Text>
+                <View style={[styles.inputContainer, isDark && styles.darkInputContainer]}>
+                  <Ionicons name="home-outline" size={20} color={isDark ? "#aaa" : "#888"} style={styles.inputIcon} />
+                  <TextInput
+                    placeholder="Dirección"
+                    placeholderTextColor={isDark ? "#999" : "#888"}
+                    value={direccion}
+                    onChangeText={setDireccion}
+                    style={[styles.input, isDark && styles.darkInput]}
+                    multiline
+                  />
+                </View>
+
+                <Text style={[styles.sectionTitle, isDark && styles.darkSectionTitle]}>Preferencia de notificación</Text>
+                <View style={styles.preferenceContainer}>
+                  <TouchableOpacity
+                    style={[
+                      styles.preferenceButton,
+                      isDark && styles.darkPreferenceButton,
+                      preferenciaNotificacion === 'email' && styles.preferenceButtonSelected,
+                      preferenciaNotificacion === 'email' && isDark && styles.darkPreferenceButtonSelected
+                    ]}
+                    onPress={() => setPreferenciaNotificacion('email')}
+                  >
+                    <Ionicons
+                      name="mail-outline"
+                      size={16}
+                      color={preferenciaNotificacion === 'email'
+                        ? '#fff'
+                        : (isDark ? theme.primary : '#3949ab')}
+                    />
+                    <Text style={[
+                      styles.preferenceText,
+                      isDark && styles.darkPreferenceText,
+                      preferenciaNotificacion === 'email' && styles.preferenceTextSelected
+                    ]}>
+                      Email
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.preferenceButton,
+                      isDark && styles.darkPreferenceButton,
+                      preferenciaNotificacion === 'sms' && styles.preferenceButtonSelected,
+                      preferenciaNotificacion === 'sms' && isDark && styles.darkPreferenceButtonSelected
+                    ]}
+                    onPress={() => setPreferenciaNotificacion('sms')}
+                  >
+                    <Ionicons
+                      name="chatbubble-outline"
+                      size={16}
+                      color={preferenciaNotificacion === 'sms'
+                        ? '#fff'
+                        : (isDark ? theme.primary : '#3949ab')}
+                    />
+                    <Text style={[
+                      styles.preferenceText,
+                      isDark && styles.darkPreferenceText,
+                      preferenciaNotificacion === 'sms' && styles.preferenceTextSelected
+                    ]}>
+                      SMS
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               </>
             )}
@@ -432,10 +549,36 @@ export default function RegisterScreen({ navigation }: any) {
                     Conductor
                   </Text>
                 </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.roleButton,
+                    isDark && styles.darkRoleButton,
+                    role === 'cliente' && styles.roleButtonSelected,
+                    role === 'cliente' && isDark && styles.darkRoleButtonSelected
+                  ]}
+                  onPress={() => setRole('cliente')}
+                >
+                  <Ionicons
+                    name="person-outline"
+                    size={20}
+                    color={role === 'cliente'
+                      ? '#fff'
+                      : (isDark ? theme.primary : '#3949ab')}
+                    style={styles.roleIcon}
+                  />
+                  <Text style={[
+                    styles.roleText,
+                    isDark && styles.darkRoleText,
+                    role === 'cliente' && styles.roleTextSelected
+                  ]}>
+                    Cliente
+                  </Text>
+                </TouchableOpacity>
               </View>
 
               {/* Common fields */}
-              {(role === 'despachador' || role === 'conductor') && (
+              {(role === 'despachador' || role === 'conductor' || role === 'cliente') && (
                 <>
                   <Text style={[styles.sectionTitle, isDark && styles.darkSectionTitle]}>Información personal</Text>
                   <View style={[styles.inputContainer, isDark && styles.darkInputContainer]}>
@@ -498,6 +641,77 @@ export default function RegisterScreen({ navigation }: any) {
                       onChangeText={setVehiculo}
                       style={[styles.input, isDark && styles.darkInput]}
                     />
+                  </View>
+                </>
+              )}
+
+              {/* Client fields */}
+              {role === 'cliente' && (
+                <>
+                  <Text style={[styles.sectionTitle, isDark && styles.darkSectionTitle]}>Información del cliente</Text>
+                  <View style={[styles.inputContainer, isDark && styles.darkInputContainer]}>
+                    <Ionicons name="home-outline" size={20} color={isDark ? "#aaa" : "#888"} style={styles.inputIcon} />
+                    <TextInput
+                      placeholder="Dirección"
+                      placeholderTextColor={isDark ? "#999" : "#888"}
+                      value={direccion}
+                      onChangeText={setDireccion}
+                      style={[styles.input, isDark && styles.darkInput]}
+                      multiline
+                    />
+                  </View>
+
+                  <Text style={[styles.sectionTitle, isDark && styles.darkSectionTitle]}>Preferencia de notificación</Text>
+                  <View style={styles.preferenceContainer}>
+                    <TouchableOpacity
+                      style={[
+                        styles.preferenceButton,
+                        isDark && styles.darkPreferenceButton,
+                        preferenciaNotificacion === 'email' && styles.preferenceButtonSelected,
+                        preferenciaNotificacion === 'email' && isDark && styles.darkPreferenceButtonSelected
+                      ]}
+                      onPress={() => setPreferenciaNotificacion('email')}
+                    >
+                      <Ionicons
+                        name="mail-outline"
+                        size={16}
+                        color={preferenciaNotificacion === 'email'
+                          ? '#fff'
+                          : (isDark ? theme.primary : '#3949ab')}
+                      />
+                      <Text style={[
+                        styles.preferenceText,
+                        isDark && styles.darkPreferenceText,
+                        preferenciaNotificacion === 'email' && styles.preferenceTextSelected
+                      ]}>
+                        Email
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.preferenceButton,
+                        isDark && styles.darkPreferenceButton,
+                        preferenciaNotificacion === 'sms' && styles.preferenceButtonSelected,
+                        preferenciaNotificacion === 'sms' && isDark && styles.darkPreferenceButtonSelected
+                      ]}
+                      onPress={() => setPreferenciaNotificacion('sms')}
+                    >
+                      <Ionicons
+                        name="chatbubble-outline"
+                        size={16}
+                        color={preferenciaNotificacion === 'sms'
+                          ? '#fff'
+                          : (isDark ? theme.primary : '#3949ab')}
+                      />
+                      <Text style={[
+                        styles.preferenceText,
+                        isDark && styles.darkPreferenceText,
+                        preferenciaNotificacion === 'sms' && styles.preferenceTextSelected
+                      ]}>
+                        SMS
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                 </>
               )}
@@ -645,8 +859,6 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   roleContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     width: '100%',
     marginBottom: 16,
   },
@@ -654,11 +866,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    width: '48%',
+    width: '100%',
     paddingVertical: 12,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#3949ab',
+    marginBottom: 8,
   },
   darkRoleButton: {
     borderColor: '#5B67CA',
@@ -681,6 +894,43 @@ const styles = StyleSheet.create({
     color: '#5B67CA',
   },
   roleTextSelected: {
+    color: '#fff',
+  },
+  preferenceContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 16,
+  },
+  preferenceButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '48%',
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#3949ab',
+  },
+  darkPreferenceButton: {
+    borderColor: '#5B67CA',
+  },
+  preferenceButtonSelected: {
+    backgroundColor: '#3949ab',
+  },
+  darkPreferenceButtonSelected: {
+    backgroundColor: '#5B67CA',
+  },
+  preferenceText: {
+    fontSize: 13,
+    color: '#3949ab',
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  darkPreferenceText: {
+    color: '#5B67CA',
+  },
+  preferenceTextSelected: {
     color: '#fff',
   },
   button: {

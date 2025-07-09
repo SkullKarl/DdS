@@ -3,6 +3,7 @@ import {
   RegistrationData,
   DriverRegistrationData,
   DispatcherRegistrationData,
+  ClientRegistrationData,
   UserRole,
 } from "../domain/Auth";
 
@@ -165,6 +166,38 @@ export class AuthService {
       }
     } catch (error) {
       console.error("Error registering dispatcher:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Registers a new client
+   * @param clientData Client registration data
+   */
+  static async registerClient(
+    clientData: ClientRegistrationData
+  ): Promise<void> {
+    try {
+      // Register the user in auth
+      await this.registerUser(clientData.email, clientData.password);
+
+      // Insert client data into the cliente table
+      const { error: dbError } = await supabase.from("cliente").insert([
+        {
+          nombre: clientData.nombre,
+          correo: clientData.email,
+          contraseña: clientData.password,
+          telefono: clientData.telefono,
+          direccion: clientData.direccion,
+          preferencia_notificacion: clientData.preferencia_notificacion || 'email',
+        },
+      ]);
+
+      if (dbError) {
+        throw dbError;
+      }
+    } catch (error) {
+      console.error("Error registering client:", error);
       throw error;
     }
   }

@@ -15,6 +15,11 @@ export interface DispatcherRegistrationData extends RegistrationData {
   // Additional dispatcher fields can be added here if needed
 }
 
+export interface ClientRegistrationData extends RegistrationData {
+  direccion: string;
+  preferencia_notificacion?: string;
+}
+
 export interface UserRole {
   role: 'dispatcher' | 'driver' | 'client' | null;
   userData: any;

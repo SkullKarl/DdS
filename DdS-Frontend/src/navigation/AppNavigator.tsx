@@ -4,6 +4,9 @@ import React from 'react';
 import HomeAdminScreen from '../screens/admin/HomeAdminScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
+import UserTypeSelectionScreen from '../screens/auth/UserTypeSelectionScreen';
+import ClientRegisterScreen from '../screens/auth/ClientRegisterScreen';
+import WorkerRegisterScreen from '../screens/auth/WorkerRegisterScreen';
 import ClientNavigator from './ClientNavigator'; // Import ClientNavigator
 import DriverNavigator from './DriverNavigator'; // Importa el DriverNavigator
 import DispatcherNavigator from './DispatcherNavigator'; // Importa el DispatcherNavigator
@@ -27,6 +30,18 @@ export default function AppNavigator() {
       <Stack.Screen 
         name="Register" 
         component={RegisterScreen} 
+      />
+      <Stack.Screen 
+        name="UserTypeSelection" 
+        component={UserTypeSelectionScreen} 
+      />
+      <Stack.Screen 
+        name="ClientRegister" 
+        component={ClientRegisterScreen} 
+      />
+      <Stack.Screen 
+        name="WorkerRegister" 
+        component={WorkerRegisterScreen} 
       />
       <Stack.Screen 
         name="HomeAdmin" 
